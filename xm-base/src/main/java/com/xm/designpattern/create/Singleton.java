@@ -11,6 +11,8 @@ public class Singleton {
     private static final Singleton instance1 = new Singleton();
     private static Singleton instance2;
     private static Singleton instance3;
+
+    // 指令重排序，有可能有了引用，但未初始化，如果没有 volatile 关键字，其他线程可能会拿到一个“未初始化完”的对象
     private volatile static Singleton instance4;
 
     private static class LazyHolder {
