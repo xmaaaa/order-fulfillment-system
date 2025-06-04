@@ -11,8 +11,10 @@ package com.xm.designpattern.structure.adapter;
 public class ClassAdapterPatternTest {
 
     public static void main(String[] args) {
+        // 第一种方式，直接继承
         PowerTarget target = new PowerAdapter();
         target.output5V();
+        // 第二种方式，持有
         PowerAdaptee powerAdaptee = new PowerAdaptee();
         PowerTarget target2 = new PowerAdapter2(powerAdaptee);
         target2.output5V();

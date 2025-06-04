@@ -1,5 +1,7 @@
 package com.xm.scope;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Component;
@@ -20,7 +22,13 @@ import org.springframework.web.context.WebApplicationContext;
 @Component
 @Scope(value = WebApplicationContext.SCOPE_REQUEST, proxyMode = ScopedProxyMode.TARGET_CLASS)
 public class RequestBean {
+    private static final Logger logger = LoggerFactory.getLogger(RequestBean.class);
+
     public RequestBean() {
-        System.out.println("🚀 创建了 RequestBean 实例");
+        logger.info("🚀 创建了 RequestBean 实例: {}", this);
+    }
+
+    public void test() {
+        logger.info("调用了 test 方法");
     }
 }
