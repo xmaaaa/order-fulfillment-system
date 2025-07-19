@@ -2,7 +2,6 @@ package com.xm.multithread;
 
 import com.google.common.collect.Lists;
 
-import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -14,34 +13,15 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * @author hongwan
  * @date 2023/2/23
  */
-public class StreamTest {
+public class CollectionTest {
 
 
     public static void main(String[] args) {
         testVector();
         testSynchronizedList();
         testCopyOnWriteArrayList();
-        //testList();
-        //autoCloseTest();
+        testList();
     }
-
-    public static void autoCloseTest() {
-        try (AutoCloseAbleBean autoCloseable = new AutoCloseAbleBean()) {
-            CompletableFuture.runAsync(() -> runAsync(autoCloseable));
-            throw new RuntimeException("test");
-//            autoCloseable.dosomething();
-//            return;
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            System.out.println("finally");
-        }
-    }
-
-    public static void runAsync(AutoCloseAbleBean autoCloseable) {
-        autoCloseable.dosomething();
-    }
-
 
     public static void testVector() {
         List<Integer> vector = new Vector<>();
@@ -70,6 +50,7 @@ public class StreamTest {
     }
 
     public static void testCopyOnWriteArrayList() {
+        // 写入时，通过创建一个新的数组，来避免冲突，读取时不加锁，适合读多写少的场景
         List<Integer> list = new CopyOnWriteArrayList<>();
         long time1 = System.currentTimeMillis();
         List<CompletableFuture<Void>> async = Lists.newArrayList();
@@ -91,18 +72,6 @@ public class StreamTest {
             CompletableFuture.runAsync(() -> list.add(finalI));
         }
         long time2 = System.currentTimeMillis();
-        System.out.println("copyOnWriteArrayList: " + (time2 - time1));
-    }
-
-
-    static class AutoCloseAbleBean implements Closeable {
-        @Override
-        public void close() {
-            System.out.println("i am close");
-        }
-
-        void dosomething() {
-            System.out.println("before close");
-        }
+        System.out.println("ArrayList: " + (time2 - time1));
     }
 }
