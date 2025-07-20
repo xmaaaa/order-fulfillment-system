@@ -6,14 +6,9 @@ package com.xm.multithread;
  */
 public class BasicThread extends Thread {
 
-    volatile boolean stop = false;
 
     @Override
     public void run() {
-        while (!this.isInterrupted()) {
-            System.out.println(getName() + " is running");
-
-        }
         System.out.println(getName() + " is exiting...");
     }
 
