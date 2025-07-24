@@ -1,8 +1,11 @@
 package com.xm.multithread;
 
+import java.time.LocalTime;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author XM
@@ -12,7 +15,7 @@ public class ThreadPoolTest {
 
 
     public static void main(String[] args) {
-        threadPool2();
+        threadPool3();
     }
 
     /**
@@ -63,5 +66,27 @@ public class ThreadPoolTest {
             });
         }
         executor.shutdown();
+    }
+
+    /**
+     * 定时线程池执行任务
+     */
+    public static void threadPool3() {
+        // 核心线程数大于1，仍然用同一个执行
+        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
+
+        Runnable task = new Runnable() {
+            int count = 0;
+
+            @Override
+            public void run() {
+                System.out.println("执行时间：" + LocalTime.now());
+                count++;
+                if (count >= 5) {
+                    scheduler.shutdown();
+                }
+            }
+        };
+        scheduler.scheduleAtFixedRate(task, 0, 2, TimeUnit.SECONDS);
     }
 }

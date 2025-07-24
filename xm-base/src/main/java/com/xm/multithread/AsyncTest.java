@@ -3,7 +3,9 @@ package com.xm.multithread;
 import com.google.common.collect.Lists;
 
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.stream.IntStream;
 
 /**
  * @author hongwan
@@ -12,7 +14,7 @@ import java.util.concurrent.*;
 public class AsyncTest {
 
     public static void main(String[] args) {
-        completableTest();
+        forkJoinTest();
     }
 
     private static void completableTest() {
@@ -20,6 +22,7 @@ public class AsyncTest {
         List<Integer> result = Lists.newArrayList();
         for (int i = 0; i < 10; i++) {
             int finalI = i;
+            // 默认用的是forkJoinPool
             futureList.add(CompletableFuture.runAsync(() -> {
                 try {
                     Thread.sleep(finalI * 1000);
@@ -44,5 +47,12 @@ public class AsyncTest {
             System.out.println("报错了" + e.getMessage());
         }
         System.out.println(result);
+    }
+
+    public static void forkJoinTest() {
+        // 默认用forkJoin
+        IntStream.range(1, 100).parallel().forEach(i -> {
+            System.out.println(Thread.currentThread().getName() + " -> " + i);
+        });
     }
 }
