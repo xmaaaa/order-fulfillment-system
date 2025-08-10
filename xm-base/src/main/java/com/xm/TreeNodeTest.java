@@ -202,7 +202,7 @@ public class TreeNodeTest {
     }
 
     /**
-     * 深度优先遍历
+     * 深度优先遍历, 用栈
      *
      * @param root
      */
@@ -210,6 +210,7 @@ public class TreeNodeTest {
         Deque<TreeNode> stack = new LinkedList<>();
         stack.push(root);
         while (!stack.isEmpty()) {
+            // 从栈头取出
             TreeNode node = stack.pop();
             if (node != null) {
                 // 逻辑
@@ -222,7 +223,7 @@ public class TreeNodeTest {
     }
 
     /**
-     * 广度优先遍历
+     * 广度优先遍历, 用队列
      *
      * @param root
      */
@@ -230,7 +231,8 @@ public class TreeNodeTest {
         Deque<TreeNode> stack = new LinkedList<>();
         stack.add(root);
         while (!stack.isEmpty()) {
-            TreeNode node = stack.pop();
+            // 从队头取出
+            TreeNode node = stack.poll();
             if (node != null) {
                 // 逻辑
                 // ...
