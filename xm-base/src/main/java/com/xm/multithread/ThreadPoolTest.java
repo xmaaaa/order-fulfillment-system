@@ -8,6 +8,9 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 /**
+ * 推荐自己用 ThreadPoolExecutor 构造
+ * 注意：Executors 工厂方法容易导致任务堆积、OOM，因为它的队列和线程数默认值不够安全！！下面只是为了书写方便
+ *
  * @author XM
  * @date 2025/7/20
  */
@@ -72,7 +75,7 @@ public class ThreadPoolTest {
      * 定时线程池执行任务
      */
     public static void threadPool3() {
-        // 核心线程数大于1，仍然用同一个执行
+        // 核心线程数大于1，仍然优先分配用同一个执行
         ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
 
         Runnable task = new Runnable() {
