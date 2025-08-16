@@ -15,6 +15,7 @@ public class UnionFind {
 
     /**
      * 此处的n要注意，是节点最大值Max + 1
+     * 如果节点稀疏可以用map代替int[] 实现hash
      *
      * @param n
      */
