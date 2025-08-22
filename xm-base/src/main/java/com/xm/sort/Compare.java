@@ -31,6 +31,7 @@ public class Compare {
         list2.sort(new Data2Comparator());
         list2.forEach(l -> System.out.println(l.val));
         list2.sort(Comparator.comparing(o -> o.val > 0));
+        list2.sort(Comparator.comparingInt(o -> o.val));
         list2.forEach(l -> System.out.println(l.val));
     }
 
