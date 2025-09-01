@@ -1,5 +1,8 @@
 package com.xm.graph;
 
+import java.util.HashSet;
+import java.util.Set;
+
 /**
  * 并查集实现 - 路径压缩 + 按秩合并（rank）
  * 可以想象一个叶子节点都指向根节点的树
@@ -72,6 +75,19 @@ public class UnionFind {
      */
     public boolean isConnected(int p, int q) {
         return find(p) == find(q);
+    }
+
+    /**
+     * 判断一共有几个连通分量
+     *
+     * @return
+     */
+    public int count() {
+        Set<Integer> set = new HashSet<>();
+        for (int i = 0; i < parent.length; i++) {
+            set.add(find(i));
+        }
+        return set.size();
     }
 
 }
