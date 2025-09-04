@@ -145,11 +145,11 @@ public class TreeNodeTest {
         while (!stack.isEmpty()) {
             TreeNode node = stack.pop();
             next.add(node.val);
-            if (node.right != null) {
-                stack.push(node.right);
-            }
             if (node.left != null) {
                 stack.push(node.left);
+            }
+            if (node.right != null) {
+                stack.push(node.right);
             }
         }
         Collections.reverse(next);
