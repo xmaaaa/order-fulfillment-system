@@ -2,6 +2,7 @@ package com.xm;
 
 import com.google.common.collect.Lists;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.LinkedList;
@@ -242,6 +243,64 @@ public class TreeNodeTest {
             }
         }
     }
+
+    /**
+     * 层序遍历，类似上面bfs，只不过要分组
+     * 可以解决很多同层相关问题
+     *
+     * @param root
+     */
+    public List<List<Integer>> levelTraversal(TreeNode root) {
+        List<List<Integer>> result = Lists.newArrayList();
+        Deque<TreeNode> stack = new LinkedList<>();
+        stack.add(root);
+        while (!stack.isEmpty()) {
+            List<Integer> nodes = Lists.newArrayList();
+            int size = stack.size();
+            while (size > 0) {
+                TreeNode node = stack.poll();
+                // 此处可以解决同层问题
+                nodes.add(node.val);
+                if (node.left != null) {
+                    stack.add(node.left);
+                }
+                if (node.right != null) {
+                    stack.add(node.right);
+                }
+                size--;
+            }
+            result.add(nodes);
+        }
+        return result;
+    }
+
+
+    /**
+     * 层序遍历递归版，记录深度
+     *
+     * @param root
+     */
+    public List<List<Integer>> levelTraversal2(TreeNode root, int deep) {
+        List<List<Integer>> result = Lists.newArrayList();
+        traversal(result, root, deep);
+        return result;
+    }
+
+    private void traversal(List<List<Integer>> resList,TreeNode root, int deep) {
+        if (root == null) {
+            return;
+        }
+        deep++;
+        if (resList.size() < deep) {
+            //当层级增加时，list的Item也增加，利用list的索引值进行层级界定
+            List<Integer> item = new ArrayList<Integer>();
+            resList.add(item);
+        }
+        resList.get(deep - 1).add(root.val);
+        traversal(resList, root.left, deep);
+        traversal(resList, root.right, deep);
+    }
+
 
     public static void main(String[] args) {
         TreeNode treeNode = new TreeNode(1, new TreeNode(2, new TreeNode(4), new TreeNode(5)), new TreeNode(3));
