@@ -5,7 +5,7 @@ import java.util.Random;
 
 /**
  * 快速排序 不稳定
- * 时间复杂度 最好O(nlogn) 最差O(n^2)
+ * 时间复杂度 最好O(n * log n) 最差 O(n^2)
  * 空间复杂度 O(logn)
  *
  * @author hongwan
