@@ -2,6 +2,10 @@ server:
   port: 8888
 
 spring:
+  application:
+    #项目名称必填，在注册中心唯一
+    #最好和之前域名规范、kubernetes service名等保持一致（会作为调用）
+    name: xm-service
   datasource:
     url: jdbc:mysql://localhost:3306/xmtest?useSSL=false&serverTimezone=UTC&characterEncoding=utf8
     username: root
