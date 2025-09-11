@@ -1,15 +1,12 @@
 package com.xm.designpattern.behavior.observer;
 
-import java.util.Observable;
-import java.util.Observer;
-
 /**
  * 百度天气观察者
  *
  * @author xm
  * @date 2023/1/11
  **/
-public class BaiduSiteObserver implements Observer {
+public class BaiduSiteObserver implements WeatherObserver {
 
     float temperature;
     float pressure;
@@ -25,18 +22,16 @@ public class BaiduSiteObserver implements Observer {
     /**
      * 更新天气状况
      *
-     * @param o
-     * @param arg
+     * @param temperature
+     * @param pressure
+     * @param humidity
      */
     @Override
-    public void update(Observable o, Object arg) {
-        if (o instanceof WeatherDataSubject) {
-            WeatherDataSubject weatherDataSubject = (WeatherDataSubject) o;
-            this.temperature = weatherDataSubject.getTemperature();
-            this.pressure = weatherDataSubject.getPressure();
-            this.humidity = weatherDataSubject.getHumidity();
-            display();
-        }
+    public void update(float temperature, float pressure, float humidity) {
+        this.temperature = temperature;
+        this.pressure = pressure;
+        this.humidity = humidity;
+        display();
     }
 }
 
