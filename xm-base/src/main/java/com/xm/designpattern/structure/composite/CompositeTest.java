@@ -11,6 +11,7 @@ package com.xm.designpattern.structure.composite;
 public class CompositeTest {
 
     public static void main(String[] args) {
+        // 让所有服装都统一结构，无论是叶子结点还是组合节点
         Composite root = new Composite("服装");
         Composite c1 = new Composite("男装");
         Composite c2 = new Composite("女装");
