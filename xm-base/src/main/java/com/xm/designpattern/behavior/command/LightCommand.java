@@ -6,21 +6,25 @@ package com.xm.designpattern.behavior.command;
  * @author XM
  * @date 2023/1/11
  */
-public class BubbleCommand implements Command {
+public class LightCommand implements Command {
 
     private final Bubble bubble;
+    private final Net net;
 
-    public BubbleCommand(Bubble bubble) {
+    public LightCommand(Bubble bubble, Net net) {
         this.bubble = bubble;
+        this.net = net;
     }
 
     @Override
     public void execute() {
+        net.on();
         bubble.on();
     }
 
     @Override
     public void undo() {
         bubble.off();
+        net.off();
     }
 }
