@@ -16,7 +16,8 @@ public class ObserverTest {
 
         // 注册观察者到被观察者
         weatherData.addObserver(new BaiduSiteObserver());
-        weatherData.addObserver(new TodaySiteObserver());
+        // 函数式编程写法
+        weatherData.addObserver((t, p, h) -> System.out.println("---自定义显示--- 温度：" + t + " 气压：" + p + " 湿度：" + h));
 
         // 测试
         System.out.println("通知观察者，注意查看天气信息！");
