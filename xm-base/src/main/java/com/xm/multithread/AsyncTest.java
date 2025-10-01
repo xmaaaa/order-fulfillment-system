@@ -17,6 +17,10 @@ public class AsyncTest {
         forkJoinTest();
     }
 
+    /**
+     * CompletableFuture 是 Future 的增强版，提供了非阻塞的结果处理、任务组合和异常处理，使得异步编程更加灵活和强大。
+     *
+     */
     private static void completableTest() {
         List<CompletableFuture<Void>> futureList = Lists.newArrayList();
         List<Integer> result = Lists.newArrayList();
