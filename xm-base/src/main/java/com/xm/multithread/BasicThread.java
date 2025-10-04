@@ -18,7 +18,6 @@ public class BasicThread extends Thread {
     public static void main(String[] args) throws InterruptedException {
         BasicThread basicThread = new BasicThread();
         basicThread.start();
-        basicThread.wait();
     }
 }
 
