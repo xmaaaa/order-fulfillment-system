@@ -7,7 +7,8 @@ import java.nio.channels.*;
 import java.util.*;
 
 /**
- * 一个基于nio 的聊天服务器， 客户端可以使用 nc/telnet localhost 1234
+ * 一个基于nio 的聊天服务器
+ * 客户端可以使用 nc/telnet localhost 1234 加入，ctrl + ] + quit 退出
  *
  * @author xm
  */
