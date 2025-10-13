@@ -12,7 +12,10 @@ public class Singleton {
     private static Singleton instance2;
     private static Singleton instance3;
 
-    // 指令重排序，有可能有了引用，但未初始化，如果没有 volatile 关键字，其他线程可能会拿到一个“未初始化完”的对象
+    // 1. 分配内存空间。
+    // 2. 初始化对象。
+    // 3. 将对象指向内存地址。
+    // 指令重排序，有可能32有了引用，但未初始化，如果没有 volatile 关键字，其他线程可能会拿到一个“未初始化完”的对象
     private volatile static Singleton instance4;
 
     private static class LazyHolder {
@@ -70,7 +73,7 @@ public class Singleton {
         if (instance4 == null) {
             // 加锁
             synchronized (Singleton.class) {
-                //第二个 if 语句进行了加锁，所以只能有一个线程进入，就不会出现 instance == null 时两个线程同时进行实例化操作。
+                // 第二个 if 语句进行了加锁，所以只能有一个线程进入，就不会出现 instance == null 时两个线程同时进行实例化操作。
                 if (instance4 == null) {
                     instance4 = new Singleton();
                 }
