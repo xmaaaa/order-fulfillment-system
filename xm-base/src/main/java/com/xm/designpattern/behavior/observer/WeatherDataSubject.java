@@ -1,9 +1,9 @@
 package com.xm.designpattern.behavior.observer;
 
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 
-import java.util.Observable;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 天气数据
@@ -14,12 +14,21 @@ import java.util.Observable;
  * @author XM
  * @date 2023/1/11
  **/
-@EqualsAndHashCode(callSuper = true)
 @Data
-public class WeatherDataSubject extends Observable {
+public class WeatherDataSubject {
     private float temperature;
     private float humidity;
     private float pressure;
+
+    private List<WeatherObserver> observers = new ArrayList<>();
+
+    public void addObserver(WeatherObserver observer) {
+        observers.add(observer);
+    }
+
+    public void removeObserver(WeatherObserver observer) {
+        observers.remove(observer);
+    }
 
     /**
      * 设置测量数据
@@ -32,9 +41,13 @@ public class WeatherDataSubject extends Observable {
         this.temperature = temperature;
         this.humidity = humidity;
         this.pressure = pressure;
-        // 使用了java 自带的util
-        setChanged();
         notifyObservers();
+    }
+
+    private void notifyObservers() {
+        for (WeatherObserver observer : observers) {
+            observer.update(temperature, humidity, pressure);
+        }
     }
 }
 
