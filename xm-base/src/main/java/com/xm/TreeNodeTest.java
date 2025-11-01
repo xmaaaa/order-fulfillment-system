@@ -102,6 +102,7 @@ public class TreeNodeTest {
      */
     public void in(TreeNode root) {
         Deque<TreeNode> stack = new LinkedList<>();
+        // 一定要注意有可能stack为空，root不为空
         while (!stack.isEmpty() || root != null) {
             if (root != null) {
                 stack.push(root);
@@ -174,9 +175,10 @@ public class TreeNodeTest {
         }
         while (!st.empty()) {
             TreeNode node = st.peek();
+            // 将该节点弹出，避免重复操作
+            st.pop();
             if (node != null) {
-                // 将该节点弹出，避免重复操作，下面再将右左中节点添加到栈中（前序遍历-中左右，入栈顺序右左中）
-                st.pop();
+                // 下面再将右左中节点添加到栈中（前序遍历-中左右，入栈顺序右左中）
                 // 添加右节点（空节点不入栈）
                 if (node.right != null) {
                     st.push(node.right);
@@ -189,10 +191,7 @@ public class TreeNodeTest {
                 st.push(node);
                 // 中节点访问过，但是还没有处理，加入空节点做为标记。
                 st.push(null);
-
             } else {
-                // 将空节点弹出
-                st.pop();
                 // 重新取出栈中元素
                 node = st.pop();
                 // 加入到结果集
