@@ -29,7 +29,7 @@ public class TestController {
         // 如果有 MyService，就用它；没有不会抛异常，返回 null
         TestService testService = myServiceProvider.getIfAvailable();
         if (testService != null) {
-            throw new Exception("MyService bean not available");
+            return testService.test();
         } else {
             System.out.println("MyService bean not available");
             throw new Exception("MyService bean not available");
@@ -41,7 +41,6 @@ public class TestController {
     public String testScope() {
         requestBean.test();
         sessionBean.test();
-        return "RequestBean: " + requestBean.hashCode()
-                + ", SessionBean: " + sessionBean.hashCode();
+        return "RequestBean: " + requestBean.hashCode() + ", SessionBean: " + sessionBean.hashCode();
     }
 }
