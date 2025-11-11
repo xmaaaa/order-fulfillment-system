@@ -17,3 +17,12 @@ spring:
         dashboard: localhost:8887   # Sentinel 控制台地址
         port: 8719                  # 客户端与控制台通信端口
 
+redis:
+  enabled: false
+  address: "redis://localhost:6379"
+
+management:
+  health:
+    db:
+      enabled: false
+
