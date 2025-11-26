@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>美业 SaaS - Stripe 功能测试</title>
+  <script src="https://js.stripe.com/v3/"></script>
+  <style>
+    /* 之前的样式... */
+    .tabs {
+      display: flex;
+      border-bottom: 2px solid #e0e0e0;
+      margin-bottom: 20px;
+    }
+
+    .tab {
+      padding: 10px 20px;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: all 0.3s;
+    }
+
+    .tab:hover {
+      background: #f5f5f5;
+    }
+
+    .tab.active {
+      border-bottom-color: #5469d4;
+      color: #5469d4;
+      font-weight: bold;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+<h1>🏪 美业 SaaS - Stripe 完整测试</h1>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('product')">📦 服务管理</div>
+  <div class="tab" onclick="switchTab('booking')">📅 预约支付</div>
+  <div class="tab" onclick="switchTab('subscription')">💳 会员订阅</div>
+  <div class="tab" onclick="switchTab('refund')">↩️ 退款</div>
+  <div class="tab" onclick="switchTab('coupon')">🎫 优惠券</div>
+  <div class="tab" onclick="switchTab('deposit')">💰 定金</div>
+  <div class="tab" onclick="switchTab('full')">🚀 完整测试</div>
+</div>
+
+<!-- Tab 1: 服务管理 -->
+<div id="product-tab" class="tab-content active section">
+  <h2>📦 服务/商品管理</h2>
+
+  <div class="form-group">
+    <label>服务名称：</label>
+    <input type="text" id="product-name" value="剪发" />
+  </div>
+
+  <div class="form-group">
+    <label>服务描述：</label>
+    <input type="text" id="product-desc" value="专业理发服务" />
+  </div>
+
+  <div class="form-group">
+    <label>价格（美元）：</label>
+    <input type="number" id="product-price" value="30" />
+  </div>
+
+  <button onclick="createProduct()">创建服务</button>
+  <button onclick="listProducts()">查看所有服务</button>
+
+  <div id="product-result" class="result" style="display:none;"></div>
+</div>
+
+<!-- Tab 2: 预约支付 -->
+<div id="booking-tab" class="tab-content section">
+  <h2>📅 预约支付（带分账）</h2>
+
+  <div class="form-group">
+    <label>Customer ID：</label>
+    <input type="text" id="booking-customer-id" />
+  </div>
+
+  <div class="form-group">
+    <label>Salon ID（发廊）：</label>
+    <input type="text" id="booking-salon-id" />
+  </div>
+
+  <div class="form-group">
+    <label>Price ID（服务）：</label>
+    <input type="text" id="booking-price-id" />
+  </div>
+
+  <button onclick="createBooking()">创建预约支付</button>
+
+  <div id="booking-result" class="result" style="display:none;"></div>
+
+  <div id="booking-payment-form" style="display:none; margin-top:20px;">
+    <div id="booking-payment-element"></div>
+    <button id="booking-submit">确认支付</button>
+  </div>
+
+  <div id="booking-status"></div>
+</div>
+
+<!-- Tab 3: 会员订阅 -->
+<div id="subscription-tab" class="tab-content section">
+  <h2>💳 会员订阅</h2>
+
+  <div class="form-group">
+    <label>Customer ID：</label>
+    <input type="text" id="sub-customer-id" />
+  </div>
+
+  <div class="form-group">
+    <label>Price ID（会员价格）：</label>
+    <input type="text" id="sub-price-id" />
+  </div>
+
+  <button onclick="createSubscription()">创建订阅</button>
+  <button onclick="cancelSubscription()">取消订阅</button>
+
+  <div id="subscription-result" class="result" style="display:none;"></div>
+</div>
+
+<!-- Tab 4: 退款 -->
+<div id="refund-tab" class="tab-content section">
+  <h2>↩️ 退款</h2>
+
+  <div class="form-group">
+    <label>Payment Intent ID：</label>
+    <input type="text" id="refund-payment-id" />
+  </div>
+
+  <div class="form-group">
+    <label>退款金额（留空=全额）：</label>
+    <input type="number" id="refund-amount" placeholder="留空表示全额退款" />
+  </div>
+
+  <div class="form-group">
+    <label>退款原因：</label>
+    <select id="refund-reason">
+      <option value="requested_by_customer">客户要求</option>
+      <option value="duplicate">重复支付</option>
+      <option value="fraudulent">欺诈</option>
+    </select>
+  </div>
+
+  <button onclick="createRefund()">创建退款</button>
+
+  <div id="refund-result" class="result" style="display:none;"></div>
+</div>
+
+<!-- Tab 5: 优惠券 -->
+<div id="coupon-tab" class="tab-content section">
+  <h2>🎫 优惠券</h2>
+
+  <div class="form-group">
+    <label>优惠券名称：</label>
+    <input type="text" id="coupon-name" value="新客优惠" />
+  </div>
+
+  <div class="form-group">
+    <label>折扣类型：</label>
+    <select id="coupon-type" onchange="toggleCouponType()">
+      <option value="percent">百分比折扣</option>
+      <option value="amount">固定金额</option>
+    </select>
+  </div>
+
+  <div class="form-group" id="coupon-percent-group">
+    <label>折扣百分比：</label>
+    <input type="number" id="coupon-percent" value="20" />
+  </div>
+
+  <div class="form-group" id="coupon-amount-group" style="display:none;">
+    <label>折扣金额（美元）：</label>
+    <input type="number" id="coupon-amount" value="10" />
+  </div>
+
+  <button onclick="createCoupon()">创建优惠券</button>
+
+  <div id="coupon-result" class="result" style="display:none;"></div>
+</div>
+
+<!-- Tab 6: 定金 -->
+<div id="deposit-tab" class="tab-content section">
+  <h2>💰 预约定金</h2>
+
+  <div class="form-group">
+    <label>Customer ID：</label>
+    <input type="text" id="deposit-customer-id" />
+  </div>
+
+  <div class="form-group">
+    <label>服务总金额：</label>
+    <input type="number" id="deposit-total" value="50" />
+  </div>
+
+  <div class="form-group">
+    <label>定金金额：</label>
+    <input type="number" id="deposit-amount" value="10" />
+  </div>
+
+  <button onclick="createDeposit()">创建定金支付</button>
+  <button onclick="captureFinal()">到店收尾款</button>
+
+  <div id="deposit-result" class="result" style="display:none;"></div>
+
+  <div id="deposit-payment-form" style="display:none; margin-top:20px;">
+    <div id="deposit-payment-element"></div>
+    <button id="deposit-submit">支付定金</button>
+  </div>
+
+  <div id="deposit-status"></div>
+</div>
+
+<!-- Tab 7: 完整测试 -->
+<div id="full-tab" class="tab-content section">
+  <h2>🚀 完整美业场景测试</h2>
+  <p>一键创建：发廊账户 + 服务项目 + 顾客 + 预约支付 + 会员卡</p>
+
+  <button onclick="testFullSalon()">运行完整测试</button>
+
+  <div id="full-result" class="result" style="display:none;"></div>
+</div>
+
+<script>
+  const API_BASE = 'http://localhost:8888';
+  let stripe;
+  let elements;
+
+  // Tab 切换
+  function switchTab(tabName) {
+    // 隐藏所有 tab
+    document.querySelectorAll('.tab-content').forEach(el => {
+      el.classList.remove('active');
+    });
+    document.querySelectorAll('.tab').forEach(el => {
+      el.classList.remove('active');
+    });
+
+    // 显示选中的 tab
+    document.getElementById(tabName + '-tab').classList.add('active');
+    event.target.classList.add('active');
+  }
+
+  // 服务管理
+  async function createProduct() {
+    const name = document.getElementById('product-name').value;
+    const description = document.getElementById('product-desc').value;
+    const price = document.getElementById('product-price').value;
+
+    try {
+      const response = await fetch(`${API_BASE}/product/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, description, price: parseFloat(price) })
+      });
+
+      const data = await response.json();
+
+      document.getElementById('product-result').style.display = 'block';
+      document.getElementById('product-result').textContent =
+              `✅ 创建成功！\nProduct ID: ${data.productId}\nPrice ID: ${data.priceId}\n服务: ${data.name}\n价格: $${data.price}`;
+
+    } catch (error) {
+      showError('product-result', error.message);
+    }
+  }
+
+  async function listProducts() {
+    try {
+      const response = await fetch(`${API_BASE}/products`);
+      const data = await response.json();
+
+      let text = `📦 共 ${data.count} 个服务：\n\n`;
+      data.products.forEach(p => {
+        text += `${p.name} - $${p.price}\n`;
+        text += `  Product ID: ${p.id}\n`;
+        text += `  Price ID: ${p.priceId}\n\n`;
+      });
+
+      document.getElementById('product-result').style.display = 'block';
+      document.getElementById('product-result').textContent = text;
+
+    } catch (error) {
+      showError('product-result', error.message);
+    }
+  }
+
+  // 退款
+  async function createRefund() {
+    const paymentIntentId = document.getElementById('refund-payment-id').value;
+    const amount = document.getElementById('refund-amount').value;
+    const reason = document.getElementById('refund-reason').value;
+
+    if (!paymentIntentId) {
+      alert('请输入 Payment Intent ID');
+      return;
+    }
+
+    try {
+      const body = { paymentIntentId, reason };
+      if (amount) body.amount = parseFloat(amount);
+
+      const response = await fetch(`${API_BASE}/refund/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      const data = await response.json();
+
+      document.getElementById('refund-result').style.display = 'block';
+      document.getElementById('refund-result').textContent =
+              `✅ 退款成功！\nRefund ID: ${data.refundId}\n金额: $${data.amount}\n原因: ${data.reason}\n状态: ${data.status}`;
+
+    } catch (error) {
+      showError('refund-result', error.message);
+    }
+  }
+
+  // 优惠券
+  function toggleCouponType() {
+    const type = document.getElementById('coupon-type').value;
+    if (type === 'percent') {
+      document.getElementById('coupon-percent-group').style.display = 'block';
+      document.getElementById('coupon-amount-group').style.display = 'none';
+    } else {
+      document.getElementById('coupon-percent-group').style.display = 'none';
+      document.getElementById('coupon-amount-group').style.display = 'block';
+    }
+  }
+
+  async function createCoupon() {
+    const name = document.getElementById('coupon-name').value;
+    const type = document.getElementById('coupon-type').value;
+
+    const body = { name, duration: 'once' };
+
+    if (type === 'percent') {
+      body.percentOff = parseFloat(document.getElementById('coupon-percent').value);
+    } else {
+      body.amountOff = parseFloat(document.getElementById('coupon-amount').value);
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/coupon/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      const data = await response.json();
+
+      document.getElementById('coupon-result').style.display = 'block';
+      document.getElementById('coupon-result').textContent =
+              `✅ 优惠券创建成功！\nCoupon ID: ${data.couponId}\n名称: ${data.name}\n` +
+              (data.percentOff ? `折扣: ${data.percentOff}%` : `优惠: $${data.amountOff}`);
+
+    } catch (error) {
+      showError('coupon-result', error.message);
+    }
+  }
+
+  // 完整测试
+  async function testFullSalon() {
+    const resultDiv = document.getElementById('full-result');
+    resultDiv.style.display = 'block';
+    resultDiv.textContent = '⏳ 正在运行完整测试...';
+
+    try {
+      const response = await fetch(`${API_BASE}/test/salon-booking`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      const data = await response.json();
+
+      resultDiv.textContent =
+              `✅ 完整测试成功！\n\n` +
+              `发廊账户: ${data.salonId}\n` +
+              `服务ID: ${data.serviceId}\n` +
+              `价格ID: ${data.priceId}\n` +
+              `顾客ID: ${data.customerId}\n` +
+              `预约ID: ${data.bookingId}\n` +
+              `会员卡价格ID: ${data.membershipPriceId}\n\n` +
+              `可以用这些 ID 在其他 Tab 中测试！`;
+
+      // 自动填充到其他表单
+      document.getElementById('booking-customer-id').value = data.customerId;
+      document.getElementById('booking-salon-id').value = data.salonId;
+      document.getElementById('booking-price-id').value = data.priceId;
+
+    } catch (error) {
+      resultDiv.textContent = `❌ 测试失败: ${error.message}`;
+    }
+  }
+
+  function showError(elementId, message) {
+    const div = document.getElementById(elementId);
+    div.style.display = 'block';
+    div.textContent = `❌ 错误: ${message}`;
+  }
+
+
+  // ========== 预约支付（带分账）==========
+
+  let bookingStripe;
+  let bookingElements;
+  let bookingPaymentElement;
+  let currentBookingSecret;
+
+  async function createBooking() {
+    const customerId = document.getElementById('booking-customer-id').value;
+    const salonId = document.getElementById('booking-salon-id').value;
+    const priceId = document.getElementById('booking-price-id').value;
+
+    if (!customerId || !salonId || !priceId) {
+      alert('请填写所有字段');
+      return;
+    }
+
+    try {
+      // 先获取价格信息
+      const priceResponse = await fetch(`${API_BASE}/price/${priceId}`);
+      const priceData = await priceResponse.json();
+      const amount = priceData.amount / 100;
+
+      // 创建预约支付（带分账）
+      const response = await fetch(`${API_BASE}/booking/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerId: customerId,
+          salonId: salonId,
+          priceId: priceId,
+          amount: amount
+        })
+      });
+
+      const data = await response.json();
+      currentBookingSecret = data.clientSecret;
+
+      const platformFee = amount * 0.2;  // 20%
+      const salonAmount = amount - platformFee;
+
+      document.getElementById('booking-result').style.display = 'block';
+      document.getElementById('booking-result').textContent =
+              `✅ 预约创建成功！\n` +
+              `Payment Intent ID: ${data.paymentIntentId}\n` +
+              `总金额: $${amount}\n` +
+              `发廊收入: $${salonAmount.toFixed(2)}\n` +
+              `平台佣金: $${platformFee.toFixed(2)}`;
+
+      // 初始化支付表单
+      if (!bookingStripe) {
+        bookingStripe = Stripe(data.publishableKey);
+
+        bookingElements = bookingStripe.elements({
+          clientSecret: currentBookingSecret,
+          appearance: { theme: 'stripe', variables: { colorPrimary: '#5469d4' } }
+        });
+
+        bookingPaymentElement = bookingElements.create('payment', {
+          layout: 'tabs'
+        });
+        bookingPaymentElement.mount('#booking-payment-element');
+
+        document.getElementById('booking-submit').onclick = confirmBooking;
+      } else {
+        // 如果已经初始化过，更新 client secret
+        bookingElements.fetchUpdates();
+      }
+
+      document.getElementById('booking-payment-form').style.display = 'block';
+
+    } catch (error) {
+      showError('booking-result', error.message);
+    }
+  }
+
+  async function confirmBooking() {
+    const button = document.getElementById('booking-submit');
+    button.disabled = true;
+    button.textContent = '处理中...';
+
+    try {
+      const {error, paymentIntent} = await bookingStripe.confirmPayment({
+        elements: bookingElements,
+        redirect: 'if_required'
+      });
+
+      if (error) {
+        document.getElementById('booking-status').innerHTML =
+                `<div class="error">❌ ${error.message}</div>`;
+        button.disabled = false;
+        button.textContent = '确认支付';
+      } else if (paymentIntent.status === 'succeeded') {
+        document.getElementById('booking-status').innerHTML =
+                `<div class="success">✅ 支付成功！预约已确认<br>Payment Intent: ${paymentIntent.id}</div>`;
+        button.textContent = '支付成功';
+
+        // 查询分账详情
+        await getTransferDetails(paymentIntent.id);
+      }
+    } catch (error) {
+      document.getElementById('booking-status').innerHTML =
+              `<div class="error">❌ ${error.message}</div>`;
+      button.disabled = false;
+      button.textContent = '确认支付';
+    }
+  }
+
+  // ========== 分账详情查询 ==========
+
+  async function getTransferDetails(paymentIntentId) {
+    try {
+      // 等待几秒让 Stripe 处理分账
+      setTimeout(async () => {
+        const response = await fetch(`${API_BASE}/payment/${paymentIntentId}/transfers`);
+        const data = await response.json();
+
+        if (data.transfers && data.transfers.length > 0) {
+          let transferInfo = '\n\n📊 分账详情：\n';
+          data.transfers.forEach(t => {
+            transferInfo += `转账ID: ${t.id}\n`;
+            transferInfo += `金额: $${t.amount}\n`;
+            transferInfo += `目标账户: ${t.destination}\n\n`;
+          });
+
+          const statusDiv = document.getElementById('booking-status');
+          statusDiv.innerHTML += `<div class="success">${transferInfo}</div>`;
+        }
+      }, 3000);
+
+    } catch (error) {
+      console.log('获取分账详情失败:', error);
+    }
+  }
+
+  // ========== 订阅管理 ==========
+
+  let currentSubscriptionId = '';
+
+  async function createSubscription() {
+    const customerId = document.getElementById('sub-customer-id').value;
+    const priceId = document.getElementById('sub-price-id').value;
+
+    if (!customerId || !priceId) {
+      alert('请填写所有字段');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/subscription/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerId: customerId,
+          priceId: priceId
+        })
+      });
+
+      const data = await response.json();
+      currentSubscriptionId = data.subscriptionId;
+
+      const endDate = new Date(data.currentPeriodEnd * 1000);
+
+      document.getElementById('subscription-result').style.display = 'block';
+      document.getElementById('subscription-result').textContent =
+              `✅ 订阅创建成功！\n` +
+              `Subscription ID: ${data.subscriptionId}\n` +
+              `状态: ${data.status}\n` +
+              `下次续费: ${endDate.toLocaleDateString()}`;
+
+    } catch (error) {
+      showError('subscription-result', error.message);
+    }
+  }
+
+  async function cancelSubscription() {
+    if (!currentSubscriptionId) {
+      alert('请先创建订阅');
+      return;
+    }
+
+    if (!confirm('确定要取消订阅吗？')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/subscription/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subscriptionId: currentSubscriptionId
+        })
+      });
+
+      const data = await response.json();
+
+      document.getElementById('subscription-result').style.display = 'block';
+      document.getElementById('subscription-result').textContent =
+              `✅ 订阅已取消\n` +
+              `Subscription ID: ${data.subscriptionId}\n` +
+              `状态: ${data.status}`;
+
+    } catch (error) {
+      showError('subscription-result', error.message);
+    }
+  }
+
+  // ========== 定金支付 ==========
+
+  let depositStripe;
+  let depositElements;
+  let depositPaymentElement;
+  let currentDepositSecret;
+  let currentDepositPaymentId;
+
+  async function createDeposit() {
+    const customerId = document.getElementById('deposit-customer-id').value;
+    const totalAmount = document.getElementById('deposit-total').value;
+    const depositAmount = document.getElementById('deposit-amount').value;
+
+    if (!customerId || !totalAmount || !depositAmount) {
+      alert('请填写所有字段');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/booking/deposit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerId: customerId,
+          totalAmount: parseFloat(totalAmount),
+          depositAmount: parseFloat(depositAmount)
+        })
+      });
+
+      const data = await response.json();
+      currentDepositSecret = data.clientSecret;
+      currentDepositPaymentId = data.paymentIntentId;
+
+      document.getElementById('deposit-result').style.display = 'block';
+      document.getElementById('deposit-result').textContent =
+              `✅ 定金支付创建成功！\n` +
+              `总金额: $${data.totalAmount}\n` +
+              `定金: $${data.depositAmount}\n` +
+              `到店还需支付: $${data.remainingAmount}`;
+
+      // 初始化支付表单
+      if (!depositStripe) {
+        depositStripe = Stripe(data.publishableKey || PUBLISHABLE_KEY);
+
+        depositElements = depositStripe.elements({
+          clientSecret: currentDepositSecret,
+          appearance: { theme: 'stripe', variables: { colorPrimary: '#5469d4' } }
+        });
+
+        depositPaymentElement = depositElements.create('payment', {
+          layout: 'tabs'
+        });
+        depositPaymentElement.mount('#deposit-payment-element');
+
+        document.getElementById('deposit-submit').onclick = confirmDeposit;
+      }
+
+      document.getElementById('deposit-payment-form').style.display = 'block';
+
+    } catch (error) {
+      showError('deposit-result', error.message);
+    }
+  }
+
+  async function confirmDeposit() {
+    const button = document.getElementById('deposit-submit');
+    button.disabled = true;
+    button.textContent = '处理中...';
+
+    try {
+      const {error, paymentIntent} = await depositStripe.confirmPayment({
+        elements: depositElements,
+        redirect: 'if_required'
+      });
+
+      if (error) {
+        document.getElementById('deposit-status').innerHTML =
+                `<div class="error">❌ ${error.message}</div>`;
+        button.disabled = false;
+        button.textContent = '支付定金';
+      } else if (paymentIntent.status === 'requires_capture') {
+        document.getElementById('deposit-status').innerHTML =
+                `<div class="success">✅ 定金授权成功！请到店后收取尾款<br>Payment Intent: ${paymentIntent.id}</div>`;
+        button.textContent = '定金已授权';
+        currentDepositPaymentId = paymentIntent.id;
+      }
+    } catch (error) {
+      document.getElementById('deposit-status').innerHTML =
+              `<div class="error">❌ ${error.message}</div>`;
+      button.disabled = false;
+      button.textContent = '支付定金';
+    }
+  }
+
+  async function captureFinal() {
+    if (!currentDepositPaymentId) {
+      alert('请先支付定金');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/booking/final-payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          paymentIntentId: currentDepositPaymentId
+        })
+      });
+
+      const data = await response.json();
+
+      document.getElementById('deposit-result').style.display = 'block';
+      document.getElementById('deposit-result').textContent =
+              `✅ 定金已收取！\n` +
+              `定金: $${data.depositAmount}\n` +
+              `尾款: $${data.remainingAmount}\n` +
+              (data.finalPaymentId ? `尾款 Payment Intent: ${data.finalPaymentId}` : '无需支付尾款');
+
+    } catch (error) {
+      showError('deposit-result', error.message);
+    }
+  }
+</script>
+</body>
+</html>

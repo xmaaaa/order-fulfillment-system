@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Stripe 完整功能测试</title>
+  <script src="https://js.stripe.com/v3/"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 900px;
+      margin: 30px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+
+    .section {
+      background: white;
+      padding: 20px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    h2 {
+      color: #5469d4;
+      border-bottom: 2px solid #5469d4;
+      padding-bottom: 10px;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+
+    input {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+
+    button {
+      background: #5469d4;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-right: 10px;
+    }
+
+    button:hover {
+      background: #4355c9;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .result {
+      background: #f0f0f0;
+      padding: 10px;
+      border-radius: 4px;
+      margin-top: 10px;
+      white-space: pre-wrap;
+      font-family: monospace;
+      font-size: 12px;
+    }
+
+    .success {
+      color: #090;
+      background: #efe;
+      padding: 10px;
+      border-radius: 4px;
+      margin-top: 10px;
+    }
+
+    .error {
+      color: #c00;
+      background: #fee;
+      padding: 10px;
+      border-radius: 4px;
+      margin-top: 10px;
+    }
+
+    #card-element {
+      border: 1px solid #ccc;
+      padding: 10px;
+      border-radius: 4px;
+      margin-bottom: 10px;
+    }
+
+    .info-box {
+      background: #e3f2fd;
+      padding: 15px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+<h1>🧪 Stripe 完整功能测试</h1>
+
+<div class="info-box">
+  <strong>测试流程：</strong><br>
+  1. 先创建 Customer（客户）<br>
+  2. 再创建 Account（商家）<br>
+  3. 然后创建支付（会自动分账）<br>
+  4. 或者创建发票测试
+</div>
+
+<!-- 1. Customer 测试 -->
+<div class="section">
+  <h2>1️⃣ Customer（客户）</h2>
+
+  <div class="form-group">
+    <label>姓名：</label>
+    <input type="text" id="customer-name" value="张三" />
+  </div>
+
+  <div class="form-group">
+    <label>邮箱：</label>
+    <input type="email" id="customer-email" value="zhangsan@example.com" />
+  </div>
+
+  <button onclick="createCustomer()">创建客户</button>
+  <button onclick="getCustomer()">查询客户</button>
+
+  <div id="customer-result" class="result" style="display:none;"></div>
+</div>
+
+<!-- 2. Connected Account 测试 -->
+<div class="section">
+  <h2>2️⃣ Connected Account（商家账户）</h2>
+
+  <div class="form-group">
+    <label>商家邮箱：</label>
+    <input type="email" id="account-email" value="merchant@example.com" />
+  </div>
+
+  <button onclick="createAccount()">创建商家账户</button>
+  <button onclick="createOnboarding()">生成入驻链接</button>
+
+  <div id="account-result" class="result" style="display:none;"></div>
+</div>
+
+<!-- 3. Payment 测试 -->
+<div class="section">
+  <h2>3️⃣ Payment（支付 + 分账）</h2>
+
+  <div class="form-group">
+    <label>Customer ID：</label>
+    <input type="text" id="payment-customer-id" placeholder="从上面获取" />
+  </div>
+
+  <div class="form-group">
+    <label>Account ID（商家）：</label>
+    <input type="text" id="payment-account-id" placeholder="从上面获取，不填则不分账" />
+  </div>
+
+  <div class="form-group">
+    <label>金额（美元）：</label>
+    <input type="number" id="payment-amount" value="100" />
+  </div>
+
+  <div class="info">
+    <strong>测试卡号：</strong><br>
+    正常卡号：4242 4242 4242 4242<br>
+    失败卡号：4000 0000 0000 0002<br>
+    3d验证卡号：4000 0027 6000 3184<br>
+    余额不足：4000 0000 0000 9995<br>
+    过期：12/25 | CVV：123
+  </div>
+
+  <button onclick="createPayment()">创建支付</button>
+
+  <div id="payment-result" class="result" style="display:none;"></div>
+
+  <!-- 支付表单 -->
+  <div id="payment-form" style="display:none; margin-top:20px;">
+    <!-- 添加邮箱输入 -->
+    <div class="form-group">
+      <label>📧 邮箱（用于接收收据）：</label>
+      <input type="email" id="payment-email" value="test@example.com" />
+    </div>
+
+    <!-- 快捷支付按钮（Apple Pay / Google Pay）-->
+    <div style="margin-bottom: 15px;">
+      <div style="font-weight: bold; margin-bottom: 5px;">⚡ 快捷支付：</div>
+      <div id="express-checkout"></div>
+    </div>
+
+    <!-- 或者用卡支付 -->
+    <div style="text-align: center; margin: 15px 0; color: #999;">
+      ───── 或使用卡支付 ─────
+    </div>
+
+    <!-- Payment Element（支持多种支付方式）-->
+    <div style="margin-bottom: 15px;">
+      <div style="font-weight: bold; margin-bottom: 5px;">💳 支付方式：</div>
+      <div id="payment-element"></div>
+    </div>
+
+    <!-- 或者保留原来的简单卡输入（二选一）-->
+    <!-- <div id="card-element"></div> -->
+
+    <button id="submit-payment">确认支付</button>
+  </div>
+
+  <div id="payment-status"></div>
+</div>
+
+<!-- 4. Invoice 测试 -->
+<div class="section">
+  <h2>4️⃣ Invoice（发票）</h2>
+
+  <div class="form-group">
+    <label>Customer ID：</label>
+    <input type="text" id="invoice-customer-id" placeholder="从上面获取" />
+  </div>
+
+  <div class="form-group">
+    <label>金额（美元）：</label>
+    <input type="number" id="invoice-amount" value="50" />
+  </div>
+
+  <div class="form-group">
+    <label>描述：</label>
+    <input type="text" id="invoice-description" value="月度会员费" />
+  </div>
+
+  <button onclick="createInvoice()">创建发票</button>
+  <button onclick="getInvoice()">查询发票</button>
+
+  <div id="invoice-result" class="result" style="display:none;"></div>
+</div>
+
+<!-- 5. 一键测试 -->
+<div class="section">
+  <h2>5️⃣ 完整流程测试（一键）</h2>
+  <p>自动创建：客户 + 商家 + 支付 + 发票</p>
+  <button onclick="testFullFlow()">🚀 运行完整测试</button>
+  <div id="full-flow-result" class="result" style="display:none;"></div>
+</div>
+
+<script>
+  const API_BASE = 'http://localhost:8888';
+  let stripe;
+  let cardElement;
+  let currentClientSecret;
+
+  // 存储创建的 ID
+  let customerId = '';
+  let accountId = '';
+  let invoiceId = '';
+
+  // ========== Customer 相关 ==========
+
+  async function createCustomer() {
+    const name = document.getElementById('customer-name').value;
+    const email = document.getElementById('customer-email').value;
+
+    try {
+      const response = await fetch(`${API_BASE}/customer/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email })
+      });
+
+      const data = await response.json();
+      customerId = data.customerId;
+
+      document.getElementById('customer-result').style.display = 'block';
+      document.getElementById('customer-result').textContent =
+              `✅ 创建成功！\nCustomer ID: ${data.customerId}\n姓名: ${data.name}\n邮箱: ${data.email}`;
+
+      // 自动填充到其他表单
+      document.getElementById('payment-customer-id').value = customerId;
+      document.getElementById('invoice-customer-id').value = customerId;
+
+    } catch (error) {
+      showError('customer-result', error.message);
+    }
+  }
+
+  async function getCustomer() {
+    if (!customerId) {
+      alert('请先创建客户');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/customer/${customerId}`);
+      const data = await response.json();
+
+      document.getElementById('customer-result').style.display = 'block';
+      document.getElementById('customer-result').textContent =
+              `客户信息：\n${JSON.stringify(data, null, 2)}`;
+
+    } catch (error) {
+      showError('customer-result', error.message);
+    }
+  }
+
+  // ========== Account 相关 ==========
+
+  async function createAccount() {
+    const email = document.getElementById('account-email').value;
+
+    try {
+      const response = await fetch(`${API_BASE}/account/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+
+      const data = await response.json();
+      accountId = data.accountId;
+
+      document.getElementById('account-result').style.display = 'block';
+      document.getElementById('account-result').textContent =
+              `✅ 创建商家成功！\nAccount ID: ${data.accountId}\n邮箱: ${data.email}\n类型: ${data.type}`;
+
+      // 自动填充
+      document.getElementById('payment-account-id').value = accountId;
+
+    } catch (error) {
+      showError('account-result', error.message);
+    }
+  }
+
+  async function createOnboarding() {
+    if (!accountId) {
+      alert('请先创建商家账户');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/account/onboarding`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountId })
+      });
+
+      const data = await response.json();
+
+      document.getElementById('account-result').style.display = 'block';
+      document.getElementById('account-result').innerHTML =
+              `✅ 入驻链接已生成！<br><a href="${data.url}" target="_blank">点击打开入驻页面</a>`;
+
+    } catch (error) {
+      showError('account-result', error.message);
+    }
+  }
+
+  // ========== Invoice 相关 ==========
+
+  async function createInvoice() {
+    const customerId = document.getElementById('invoice-customer-id').value;
+    const amount = document.getElementById('invoice-amount').value;
+    const description = document.getElementById('invoice-description').value;
+
+    if (!customerId) {
+      alert('请先创建或输入 Customer ID');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/invoice/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerId,
+          amount: parseFloat(amount),
+          description
+        })
+      });
+
+      const data = await response.json();
+      invoiceId = data.invoiceId;
+
+      document.getElementById('invoice-result').style.display = 'block';
+      document.getElementById('invoice-result').innerHTML =
+              `✅ 发票创建成功！\nInvoice ID: ${data.invoiceId}\n状态: ${data.status}\n金额: $${data.amountDue / 100}\n\n📄 <a href="${data.invoiceUrl}" target="_blank">点击查看发票并支付</a>`;
+
+    } catch (error) {
+      showError('invoice-result', error.message);
+    }
+  }
+
+  async function getInvoice() {
+    if (!invoiceId) {
+      alert('请先创建发票');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/invoice/${invoiceId}`);
+      const data = await response.json();
+
+      document.getElementById('invoice-result').style.display = 'block';
+      document.getElementById('invoice-result').textContent =
+              `发票状态：\n${JSON.stringify(data, null, 2)}`;
+
+    } catch (error) {
+      showError('invoice-result', error.message);
+    }
+  }
+
+  // ========== 完整流程测试 ==========
+
+  async function testFullFlow() {
+    const resultDiv = document.getElementById('full-flow-result');
+    resultDiv.style.display = 'block';
+    resultDiv.textContent = '⏳ 正在运行完整测试...';
+
+    try {
+      const response = await fetch(`${API_BASE}/test/full-flow`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      const data = await response.json();
+
+      customerId = data.customer;
+      accountId = data.account;
+      invoiceId = data.invoice;
+      currentClientSecret = data.clientSecret;
+
+      resultDiv.textContent =
+              `✅ 完整流程测试成功！\n\n` +
+              `Customer ID: ${data.customer}\n` +
+              `Account ID: ${data.account}\n` +
+              `Payment Intent ID: ${data.paymentIntent}\n` +
+              `Invoice ID: ${data.invoice}\n\n` +
+              `📄 发票链接: ${data.invoiceUrl}\n\n` +
+              `现在可以在上面的表单中输入测试卡完成支付！`;
+
+      // 自动填充
+      document.getElementById('payment-customer-id').value = customerId;
+      document.getElementById('payment-account-id').value = accountId;
+
+      // 初始化支付表单
+      if (!stripe) {
+        stripe = Stripe(data.publishableKey);
+        const elements = stripe.elements();
+        cardElement = elements.create('card', { hidePostalCode: true });
+        cardElement.mount('#card-element');
+
+        document.getElementById('submit-payment').onclick = confirmPayment;
+      }
+
+      document.getElementById('payment-form').style.display = 'block';
+
+    } catch (error) {
+      resultDiv.textContent = `❌ 测试失败: ${error.message}`;
+    }
+  }
+
+  // 工具函数
+  function showError(elementId, message) {
+    const div = document.getElementById(elementId);
+    div.style.display = 'block';
+    div.textContent = `❌ 错误: ${message}`;
+  }
+
+  // ========== Payment 相关 ==========
+
+  let elements;
+  let paymentElement;  // 新增
+  let expressCheckout;  // 新增
+  let paymentIntentId;
+
+  async function createPayment() {
+    const customerId = document.getElementById('payment-customer-id').value;
+    const accountId = document.getElementById('payment-account-id').value;
+    const amount = document.getElementById('payment-amount').value;
+
+    if (!customerId) {
+      alert('请先创建或输入 Customer ID');
+      return;
+    }
+
+    try {
+      const body = { amount: parseFloat(amount) };
+      if (customerId) body.customerId = customerId;
+      if (accountId) body.accountId = accountId;
+
+      const response = await fetch(`${API_BASE}/payment/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      const data = await response.json();
+      currentClientSecret = data.clientSecret;
+      paymentIntentId = data.paymentIntentId;
+
+      document.getElementById('payment-result').style.display = 'block';
+      document.getElementById('payment-result').textContent =
+              `✅ 支付创建成功！\nPayment Intent ID: ${data.paymentIntentId}\n金额: $${data.amount / 100}\n${accountId ? '（包含平台分账20%）' : ''}`;
+
+      // 初始化 Stripe 支付表单（新版 Payment Element）
+      if (!stripe) {
+        stripe = Stripe(data.publishableKey);
+
+        // 使用新的 Elements API
+        elements = stripe.elements({
+          clientSecret: currentClientSecret,
+          appearance: {
+            theme: 'stripe',
+            variables: {
+              colorPrimary: '#5469d4',
+            }
+          }
+        });
+
+        // 创建 Payment Element（支持多种支付方式）
+        paymentElement = elements.create('payment', {
+          layout: 'tabs'  // tabs 或 accordion
+        });
+        paymentElement.mount('#payment-element');
+
+        // 创建 Express Checkout（Apple Pay / Google Pay）
+        try {
+          expressCheckout = elements.create('expressCheckout', {
+            buttonType: {
+              applePay: 'buy',
+              googlePay: 'buy'
+            }
+          });
+          expressCheckout.mount('#express-checkout');
+
+          // Express Checkout 点击事件
+          expressCheckout.on('click', async (event) => {
+            const email = document.getElementById('payment-email').value;
+            const {error} = await stripe.confirmPayment({
+              elements,
+              confirmParams: {
+                receipt_email: email,
+              },
+              redirect: 'if_required'
+            });
+
+            if (error) {
+              document.getElementById('payment-status').innerHTML =
+                      `<div class="error">❌ ${error.message}</div>`;
+            }
+          });
+        } catch (e) {
+          // 如果不支持 Express Checkout（比如非 HTTPS），忽略错误
+          console.log('Express Checkout 不可用:', e);
+          document.getElementById('express-checkout').style.display = 'none';
+        }
+
+        // 绑定确认支付按钮
+        document.getElementById('submit-payment').onclick = confirmPayment;
+      }
+
+      document.getElementById('payment-form').style.display = 'block';
+
+    } catch (error) {
+      showError('payment-result', error.message);
+    }
+  }
+
+  async function confirmPayment() {
+    const button = document.getElementById('submit-payment');
+    const email = document.getElementById('payment-email').value;
+
+    button.disabled = true;
+    button.textContent = '处理中...';
+
+    try {
+      const {error, paymentIntent} = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          receipt_email: email,
+        },
+        redirect: 'if_required'
+      });
+
+      if (error) {
+        document.getElementById('payment-status').innerHTML =
+                `<div class="error">❌ ${error.message}</div>`;
+        button.disabled = false;
+        button.textContent = '确认支付';
+      } else if (paymentIntent.status === 'succeeded') {
+        document.getElementById('payment-status').innerHTML =
+                `<div class="success">✅ 支付成功！<br>Payment Intent: ${paymentIntent.id}<br>状态: ${paymentIntent.status}<br>收据将发送到: ${email}</div>`;
+        button.textContent = '支付成功';
+
+        // 主动通知后端
+        await fetch(`${API_BASE}/payment-status/${paymentIntent.id}`);
+      }
+    } catch (error) {
+      document.getElementById('payment-status').innerHTML =
+              `<div class="error">❌ ${error.message}</div>`;
+      button.disabled = false;
+      button.textContent = '确认支付';
+    }
+  }
+
+
+
+</script>
+</body>
+</html>
