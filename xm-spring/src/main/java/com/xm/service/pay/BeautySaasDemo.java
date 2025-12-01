@@ -19,7 +19,7 @@ public class BeautySaasDemo {
     private static final String PUBLISHABLE_KEY = "11";
 
     // ========== 1. Product & Price（服务目录）==========
-    
+
     /**
      * 创建服务项目
      */
@@ -33,34 +33,34 @@ public class BeautySaasDemo {
                 .setType(ProductCreateParams.Type.SERVICE)  // 服务类型
                 .putMetadata("category", (String) data.getOrDefault("category", "haircut"))
                 .build();
-            
+
             Product product = Product.create(productParams);
-            
+
             // 2. 创建 Price（价格）
             Long amount = ((Number) data.get("price")).longValue() * 100;
-            
+
             PriceCreateParams priceParams = PriceCreateParams.builder()
                 .setProduct(product.getId())
                 .setUnitAmount(amount)  // $30 = 3000 cents
                 .setCurrency("usd")
                 .build();
-            
+
             Price price = Price.create(priceParams);
-            
+
             Map<String, Object> response = new HashMap<>();
             response.put("productId", product.getId());
             response.put("priceId", price.getId());
             response.put("name", product.getName());
             response.put("price", price.getUnitAmount() / 100.0);
-            
+
             System.out.println("✅ 创建服务: " + product.getName() + " - $" + price.getUnitAmount() / 100.0);
             return response;
-            
+
         } catch (StripeException e) {
             throw new RuntimeException(e);
         }
     }
-    
+
     /**
      * 列出所有服务
      */
@@ -71,45 +71,45 @@ public class BeautySaasDemo {
                 .setActive(true)
                 .setLimit(100L)
                 .build();
-            
+
             ProductCollection products = Product.list(params);
-            
+
             List<Map<String, Object>> productList = new ArrayList<>();
             for (Product product : products.getData()) {
                 // 获取该产品的价格
                 PriceListParams priceParams = PriceListParams.builder()
                     .setProduct(product.getId())
                     .build();
-                
+
                 PriceCollection prices = Price.list(priceParams);
-                
+
                 Map<String, Object> item = new HashMap<>();
                 item.put("id", product.getId());
                 item.put("name", product.getName());
                 item.put("description", product.getDescription());
-                
+
                 if (!prices.getData().isEmpty()) {
                     Price price = prices.getData().get(0);
                     item.put("priceId", price.getId());
                     item.put("price", price.getUnitAmount() / 100.0);
                 }
-                
+
                 productList.add(item);
             }
-            
+
             Map<String, Object> response = new HashMap<>();
             response.put("products", productList);
             response.put("count", productList.size());
-            
+
             return response;
-            
+
         } catch (StripeException e) {
             throw new RuntimeException(e);
         }
     }
-    
+
     // ========== 2. Subscription（会员订阅）==========
-    
+
     /**
      * 创建订阅会员
      */
@@ -118,7 +118,7 @@ public class BeautySaasDemo {
         try {
             String customerId = (String) data.get("customerId");
             String priceId = (String) data.get("priceId");  // 月度会员的 Price ID
-            
+
             SubscriptionCreateParams params = SubscriptionCreateParams.builder()
                 .setCustomer(customerId)
                 .addItem(
@@ -135,22 +135,22 @@ public class BeautySaasDemo {
                     )
                 )
                 .build();
-            
+
             Subscription subscription = Subscription.create(params);
-            
+
             Map<String, Object> response = new HashMap<>();
             response.put("subscriptionId", subscription.getId());
             response.put("status", subscription.getStatus());
             response.put("currentPeriodEnd", subscription.getCancelAt());
-            
+
             System.out.println("✅ 创建订阅: " + subscription.getId());
             return response;
-            
+
         } catch (StripeException e) {
             throw new RuntimeException(e);
         }
     }
-    
+
     /**
      * 取消订阅
      */
@@ -158,22 +158,22 @@ public class BeautySaasDemo {
     public Map<String, Object> cancelSubscription(@RequestBody Map<String, String> data) {
         try {
             String subscriptionId = data.get("subscriptionId");
-            
+
             Subscription subscription = Subscription.retrieve(subscriptionId);
             subscription = subscription.cancel();
-            
+
             Map<String, Object> response = new HashMap<>();
             response.put("subscriptionId", subscription.getId());
             response.put("status", subscription.getStatus());  // "canceled"
-            
+
             System.out.println("✅ 取消订阅: " + subscriptionId);
             return response;
-            
+
         } catch (StripeException e) {
             throw new RuntimeException(e);
         }
     }
-    
+
     /**
      * 查询订阅状态
      */
@@ -181,23 +181,23 @@ public class BeautySaasDemo {
     public Map<String, Object> getSubscription(@PathVariable String subscriptionId) {
         try {
             Subscription subscription = Subscription.retrieve(subscriptionId);
-            
+
             Map<String, Object> response = new HashMap<>();
             response.put("id", subscription.getId());
             response.put("status", subscription.getStatus());
             response.put("currentPeriodStart", subscription.getStartDate());
             response.put("currentPeriodEnd", subscription.getCancelAt());
             response.put("cancelAtPeriodEnd", subscription.getCancelAtPeriodEnd());
-            
+
             return response;
-            
+
         } catch (StripeException e) {
             throw new RuntimeException(e);
         }
     }
-    
+
     // ========== 3. Refund（退款）==========
-    
+
     /**
      * 创建退款
      */
@@ -205,16 +205,16 @@ public class BeautySaasDemo {
     public Map<String, Object> createRefund(@RequestBody Map<String, Object> data) {
         try {
             String paymentIntentId = (String) data.get("paymentIntentId");
-            
+
             RefundCreateParams.Builder builder = RefundCreateParams.builder()
                 .setPaymentIntent(paymentIntentId);
-            
+
             // 部分退款 or 全额退款
             if (data.containsKey("amount")) {
                 Long amount = ((Number) data.get("amount")).longValue() * 100;
                 builder.setAmount(amount);
             }
-            
+
             // 退款原因
             if (data.containsKey("reason")) {
                 String reason = (String) data.get("reason");
@@ -231,23 +231,23 @@ public class BeautySaasDemo {
                 }
                 builder.setReason(refundReason);
             }
-            
+
             Refund refund = Refund.create(builder.build());
-            
+
             Map<String, Object> response = new HashMap<>();
             response.put("refundId", refund.getId());
             response.put("status", refund.getStatus());
             response.put("amount", refund.getAmount() / 100.0);
             response.put("reason", refund.getReason());
-            
+
             System.out.println("✅ 创建退款: $" + refund.getAmount() / 100.0);
             return response;
-            
+
         } catch (StripeException e) {
             throw new RuntimeException(e);
         }
     }
-    
+
     /**
      * 查询退款状态
      */
@@ -255,23 +255,23 @@ public class BeautySaasDemo {
     public Map<String, Object> getRefund(@PathVariable String refundId) {
         try {
             Refund refund = Refund.retrieve(refundId);
-            
+
             Map<String, Object> response = new HashMap<>();
             response.put("id", refund.getId());
             response.put("status", refund.getStatus());
             response.put("amount", refund.getAmount() / 100.0);
             response.put("reason", refund.getReason());
             response.put("created", refund.getCreated());
-            
+
             return response;
-            
+
         } catch (StripeException e) {
             throw new RuntimeException(e);
         }
     }
-    
+
     // ========== 4. Coupon（优惠券）==========
-    
+
     /**
      * 创建优惠券
      */
@@ -281,7 +281,7 @@ public class BeautySaasDemo {
             CouponCreateParams.Builder builder = CouponCreateParams.builder()
                 .setName((String) data.get("name"))
                 .setCurrency("usd");
-            
+
             // 百分比折扣 or 固定金额折扣
             if (data.containsKey("percentOff")) {
                 builder.setPercentOff(
@@ -291,7 +291,7 @@ public class BeautySaasDemo {
                 Long amount = ((Number) data.get("amountOff")).longValue() * 100;
                 builder.setAmountOff(amount);
             }
-            
+
             // 有效期
             if (data.containsKey("duration")) {
                 String duration = (String) data.get("duration");
@@ -312,25 +312,25 @@ public class BeautySaasDemo {
                         break;
                 }
             }
-            
+
             Coupon coupon = Coupon.create(builder.build());
-            
+
             Map<String, Object> response = new HashMap<>();
             response.put("couponId", coupon.getId());
             response.put("name", coupon.getName());
             response.put("percentOff", coupon.getPercentOff());
             response.put("amountOff", coupon.getAmountOff() != null ? coupon.getAmountOff() / 100.0 : null);
-            
+
             System.out.println("✅ 创建优惠券: " + coupon.getName());
             return response;
-            
+
         } catch (StripeException e) {
             throw new RuntimeException(e);
         }
     }
-    
+
     // ========== 5. Payment Method（支付方式管理）==========
-    
+
     /**
      * 保存支付方式
      */
@@ -339,31 +339,31 @@ public class BeautySaasDemo {
         try {
             String paymentMethodId = data.get("paymentMethodId");
             String customerId = data.get("customerId");
-            
+
             PaymentMethod paymentMethod = PaymentMethod.retrieve(paymentMethodId);
             paymentMethod = paymentMethod.attach(
                 PaymentMethodAttachParams.builder()
                     .setCustomer(customerId)
                     .build()
             );
-            
+
             Map<String, Object> response = new HashMap<>();
             response.put("paymentMethodId", paymentMethod.getId());
             response.put("type", paymentMethod.getType());
-            
+
             if (paymentMethod.getCard() != null) {
                 response.put("brand", paymentMethod.getCard().getBrand());
                 response.put("last4", paymentMethod.getCard().getLast4());
             }
-            
+
             System.out.println("✅ 保存支付方式: " + paymentMethod.getId());
             return response;
-            
+
         } catch (StripeException e) {
             throw new RuntimeException(e);
         }
     }
-    
+
     /**
      * 列出客户的所有支付方式
      */
@@ -374,38 +374,38 @@ public class BeautySaasDemo {
                 .setCustomer(customerId)
                 .setType(PaymentMethodListParams.Type.CARD)
                 .build();
-            
+
             PaymentMethodCollection paymentMethods = PaymentMethod.list(params);
-            
+
             List<Map<String, Object>> methodList = new ArrayList<>();
             for (PaymentMethod pm : paymentMethods.getData()) {
                 Map<String, Object> item = new HashMap<>();
                 item.put("id", pm.getId());
                 item.put("type", pm.getType());
-                
+
                 if (pm.getCard() != null) {
                     item.put("brand", pm.getCard().getBrand());
                     item.put("last4", pm.getCard().getLast4());
                     item.put("expMonth", pm.getCard().getExpMonth());
                     item.put("expYear", pm.getCard().getExpYear());
                 }
-                
+
                 methodList.add(item);
             }
-            
+
             Map<String, Object> response = new HashMap<>();
             response.put("paymentMethods", methodList);
             response.put("count", methodList.size());
-            
+
             return response;
-            
+
         } catch (StripeException e) {
             throw new RuntimeException(e);
         }
     }
-    
+
     // ========== 6. Transfer（分账查询）==========
-    
+
     /**
      * 查询分账详情
      */
@@ -413,21 +413,21 @@ public class BeautySaasDemo {
     public Map<String, Object> getTransfer(@PathVariable String transferId) {
         try {
             Transfer transfer = Transfer.retrieve(transferId);
-            
+
             Map<String, Object> response = new HashMap<>();
             response.put("id", transfer.getId());
             response.put("amount", transfer.getAmount() / 100.0);
             response.put("destination", transfer.getDestination());
             response.put("created", transfer.getCreated());
             response.put("description", transfer.getDescription());
-            
+
             return response;
-            
+
         } catch (StripeException e) {
             throw new RuntimeException(e);
         }
     }
-    
+
     /**
      * 列出某个账户的所有转账
      */
@@ -436,13 +436,13 @@ public class BeautySaasDemo {
         try {
             TransferListParams.Builder builder = TransferListParams.builder()
                 .setLimit(100L);
-            
+
             if (destination != null) {
                 builder.setDestination(destination);
             }
-            
+
             TransferCollection transfers = Transfer.list(builder.build());
-            
+
             List<Map<String, Object>> transferList = new ArrayList<>();
             for (Transfer transfer : transfers.getData()) {
                 Map<String, Object> item = new HashMap<>();
@@ -450,23 +450,23 @@ public class BeautySaasDemo {
                 item.put("amount", transfer.getAmount() / 100.0);
                 item.put("destination", transfer.getDestination());
                 item.put("created", transfer.getCreated());
-                
+
                 transferList.add(item);
             }
-            
+
             Map<String, Object> response = new HashMap<>();
             response.put("transfers", transferList);
             response.put("count", transferList.size());
-            
+
             return response;
-            
+
         } catch (StripeException e) {
             throw new RuntimeException(e);
         }
     }
-    
+
     // ========== 7. 预约定金（Deposit）==========
-    
+
     /**
      * 创建预约定金支付
      */
@@ -476,7 +476,7 @@ public class BeautySaasDemo {
             String customerId = (String) data.get("customerId");
             Long totalAmount = ((Number) data.get("totalAmount")).longValue() * 100;
             Long depositAmount = ((Number) data.get("depositAmount")).longValue() * 100;
-            
+
             // 创建 Payment Intent（只收定金）
             PaymentIntent intent = PaymentIntent.create(
                 PaymentIntentCreateParams.builder()
@@ -494,22 +494,22 @@ public class BeautySaasDemo {
                     )
                     .build()
             );
-            
+
             Map<String, Object> response = new HashMap<>();
             response.put("paymentIntentId", intent.getId());
             response.put("clientSecret", intent.getClientSecret());
             response.put("depositAmount", depositAmount / 100.0);
             response.put("totalAmount", totalAmount / 100.0);
             response.put("remainingAmount", (totalAmount - depositAmount) / 100.0);
-            
+
             System.out.println("✅ 创建预约定金: $" + depositAmount / 100.0);
             return response;
-            
+
         } catch (StripeException e) {
             throw new RuntimeException(e);
         }
     }
-    
+
     /**
      * 到店后收取尾款
      */
@@ -517,17 +517,17 @@ public class BeautySaasDemo {
     public Map<String, Object> captureFinalPayment(@RequestBody Map<String, Object> data) {
         try {
             String paymentIntentId = (String) data.get("paymentIntentId");
-            
+
             PaymentIntent intent = PaymentIntent.retrieve(paymentIntentId);
-            
+
             // 扣除定金（授权转扣款）
             intent = intent.capture();
-            
+
             // 计算尾款
             Long totalAmount = Long.parseLong(intent.getMetadata().get("total_amount"));
             Long depositAmount = intent.getAmount();
             Long remainingAmount = totalAmount - depositAmount;
-            
+
             // 如果还有尾款，创建新的 Payment Intent
             PaymentIntent finalPayment = null;
             if (remainingAmount > 0) {
@@ -546,27 +546,27 @@ public class BeautySaasDemo {
                         .build()
                 );
             }
-            
+
             Map<String, Object> response = new HashMap<>();
             response.put("depositCaptured", true);
             response.put("depositAmount", depositAmount / 100.0);
             response.put("remainingAmount", remainingAmount / 100.0);
-            
+
             if (finalPayment != null) {
                 response.put("finalPaymentId", finalPayment.getId());
                 response.put("finalClientSecret", finalPayment.getClientSecret());
             }
-            
+
             System.out.println("✅ 收取定金 + 尾款");
             return response;
-            
+
         } catch (StripeException e) {
             throw new RuntimeException(e);
         }
     }
-    
+
     // ========== 8. 完整美业场景测试 ==========
-    
+
     /**
      * 完整美业场景：发廊预约流程
      */
@@ -574,7 +574,7 @@ public class BeautySaasDemo {
     public Map<String, Object> testSalonBooking() {
         try {
             Map<String, Object> result = new HashMap<>();
-            
+
             // 1. 创建商家（发廊）
             Account salon = Account.create(
                 AccountCreateParams.builder()
@@ -599,7 +599,7 @@ public class BeautySaasDemo {
             );
             result.put("salonId", salon.getId());
             System.out.println("1️⃣ 创建发廊账户: " + salon.getId());
-            
+
             // 2. 创建服务项目
             Product haircutProduct = Product.create(
                 ProductCreateParams.builder()
@@ -607,7 +607,7 @@ public class BeautySaasDemo {
                     .setType(ProductCreateParams.Type.SERVICE)
                     .build()
             );
-            
+
             Price haircutPrice = Price.create(
                 PriceCreateParams.builder()
                     .setProduct(haircutProduct.getId())
@@ -618,7 +618,7 @@ public class BeautySaasDemo {
             result.put("serviceId", haircutProduct.getId());
             result.put("priceId", haircutPrice.getId());
             System.out.println("2️⃣ 创建服务: 剪发 $30");
-            
+
             // 3. 创建顾客
             Customer customer = Customer.create(
                 CustomerCreateParams.builder()
@@ -628,7 +628,7 @@ public class BeautySaasDemo {
             );
             result.put("customerId", customer.getId());
             System.out.println("3️⃣ 创建顾客: " + customer.getId());
-            
+
             // 4. 创建预约并支付（带分账）
             PaymentIntent booking = PaymentIntent.create(
                 PaymentIntentCreateParams.builder()
@@ -654,7 +654,7 @@ public class BeautySaasDemo {
             result.put("clientSecret", booking.getClientSecret());
             result.put("publishableKey", PUBLISHABLE_KEY);
             System.out.println("4️⃣ 创建预约支付: $30（发廊得 $24，平台得 $6）");
-            
+
             // 5. 创建月度会员卡
             Product membership = Product.create(
                 ProductCreateParams.builder()
@@ -662,11 +662,11 @@ public class BeautySaasDemo {
                     .setType(ProductCreateParams.Type.SERVICE)
                     .build()
             );
-            
+
             Price membershipPrice = Price.create(
                 PriceCreateParams.builder()
                     .setProduct(membership.getId())
-                    .setUnitAmount(9900L)  // $99/月
+                    .setUnitAmount(9900L)
                     .setCurrency("usd")
                     .setRecurring(
                         PriceCreateParams.Recurring.builder()
@@ -677,13 +677,13 @@ public class BeautySaasDemo {
             );
             result.put("membershipPriceId", membershipPrice.getId());
             System.out.println("5️⃣ 创建会员卡: $99/月");
-            
+
             System.out.println("\n✅ 完整美业场景创建成功！");
             return result;
-            
+
         } catch (StripeException e) {
             throw new RuntimeException(e);
         }
     }
-    
+
 }
