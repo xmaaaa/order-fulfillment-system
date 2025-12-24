@@ -1,0 +1,76 @@
+### ==================== SMS 短信测试 ====================
+
+### 发送短信（改成你验证过的手机号）
+POST http://localhost:8888/api/sms/send
+Content-Type: application/json
+
+{
+  "to": "+8615888441354",
+  "message": "Hello from TeaTime! "
+}
+
+###
+
+### 发送 MMS（带图片）
+POST http://localhost:8888/api/sms/send
+Content-Type: application/json
+
+{
+  "to": "+8615888441354",
+  "message": "Check out our spa!",
+  "mediaUrl": "https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400"
+}
+
+###
+
+### 发送预约提醒
+POST http://localhost:8888/api/sms/booking-reminder?to=+8615888441354&customerName=John&serviceName=Massage&appointmentTime=Tomorrow 2PM&staffName=Sarah
+
+###
+
+### 查询消息状态（替换成实际的 SID）
+GET http://localhost:8888/api/sms/SMxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+###
+
+### ==================== Voice 语音测试 ====================
+
+### 发起外呼（简单朗读）
+POST http://localhost:8888/api/voice/call
+Content-Type: application/json
+
+{
+  "to": "+14436163656",
+  "record": true
+}
+
+###
+
+### 发起外呼（IVR 菜单）
+POST http://localhost:8888/api/voice/call
+Content-Type: application/json
+
+{
+  "to": "+14436163656",
+  "record": false
+}
+
+###
+
+### 发起预约确认电话
+POST http://localhost:8888/api/voice/booking-call?to=++14436163656&customerName=John&serviceName=Deep Tissue Massage&appointmentTime=Tomorrow at 2 PM
+
+###
+
+### 查询通话状态（替换成实际的 SID）
+GET http://localhost:8888/api/voice/CAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+###
+
+### 结束通话
+POST http://localhost:8888/api/voice/CAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/end
+
+###
+
+### 获取通话录音
+GET http://localhost:8888/api/voice/CAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/recordings
