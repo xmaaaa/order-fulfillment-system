@@ -1,0 +1,160 @@
+### ==================== Email 邮件测试 ====================
+
+### 发送简单邮件
+POST http://localhost:8888/api/email/send
+Content-Type: application/json
+
+{
+  "to": "customer@example.com",
+  "toName": "John Doe",
+  "subject": "Welcome to TeaTime Spa! 🎉",
+  "textContent": "Thank you for joining us!",
+  "htmlContent": "<h1>Welcome!</h1><p>Thank you for joining <strong>TeaTime Spa</strong>!</p>"
+}
+
+###
+
+### 发送带附件的邮件
+POST http://localhost:8888/api/email/send
+Content-Type: application/json
+
+{
+  "to": "customer@example.com",
+  "toName": "John Doe",
+  "subject": "Your Invoice",
+  "htmlContent": "<p>Please find your invoice attached.</p>",
+  "attachments": [
+    {
+      "filename": "invoice.txt",
+      "type": "text/plain",
+      "base64Content": "SW52b2ljZSAjMTIzNDUKQW1vdW50OiAkMTAwLjAw"
+    }
+  ]
+}
+
+###
+
+### 发送带 CC/BCC 的邮件
+POST http://localhost:8888/api/email/send
+Content-Type: application/json
+
+{
+  "to": "customer@example.com",
+  "toName": "John Doe",
+  "subject": "Team Update",
+  "htmlContent": "<p>Here's the latest update...</p>",
+  "cc": ["manager@example.com"],
+  "bcc": ["admin@example.com"]
+}
+
+###
+
+### 使用动态模板发送（需要先在 SendGrid 创建模板）
+POST http://localhost:8888/api/email/send-template
+Content-Type: application/json
+
+{
+  "to": "customer@example.com",
+  "toName": "John Doe",
+  "templateId": "d-xxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "dynamicData": {
+    "first_name": "John",
+    "booking_date": "2025-01-15",
+    "service_name": "Deep Tissue Massage"
+  }
+}
+
+###
+
+### ==================== 预约相关邮件 ====================
+
+### 发送预约确认邮件
+POST http://localhost:8888/api/email/booking-confirmation
+Content-Type: application/json
+
+{
+  "customerEmail": "john@example.com",
+  "customerName": "John Doe",
+  "bookingId": "BK-2025-001234",
+  "serviceName": "Deep Tissue Massage",
+  "staffName": "Sarah Johnson",
+  "date": "January 15, 2025",
+  "time": "2:00 PM",
+  "duration": "60 minutes",
+  "price": "120.00",
+  "address": "123 Spa Street, Suite 100, San Francisco, CA 94102",
+  "locationUrl": "https://maps.google.com/?q=123+Spa+Street",
+  "cancelUrl": "https://teatime.spa/cancel/BK-2025-001234"
+}
+
+###
+
+### 发送预约提醒邮件
+POST http://localhost:8888/api/email/booking-reminder
+Content-Type: application/json
+
+{
+  "customerEmail": "john@example.com",
+  "customerName": "John Doe",
+  "bookingId": "BK-2025-001234",
+  "serviceName": "Deep Tissue Massage",
+  "staffName": "Sarah Johnson",
+  "date": "Tomorrow, January 15",
+  "time": "2:00 PM",
+  "duration": "60 minutes",
+  "address": "123 Spa Street, Suite 100, San Francisco, CA 94102"
+}
+
+###
+
+### ==================== 支付相关邮件 ====================
+
+### 发送支付收据
+POST http://localhost:8888/api/email/payment-receipt
+Content-Type: application/json
+
+{
+  "customerEmail": "john@example.com",
+  "customerName": "John Doe",
+  "transactionId": "TXN-2025-567890",
+  "items": [
+    { "name": "Deep Tissue Massage (60 min)", "amount": 120.00 },
+    { "name": "Aromatherapy Add-on", "amount": 25.00 },
+    { "name": "Tip", "amount": 30.00 }
+  ],
+  "total": 175.00,
+  "paymentMethod": "Visa ending in 4242",
+  "date": "January 15, 2025"
+}
+
+###
+
+### ==================== 批量发送（营销邮件） ====================
+
+### 批量发送促销邮件
+POST http://localhost:8888/api/email/send-bulk
+Content-Type: application/json
+
+{
+  "subject": "🎁 Special Offer Just for You!",
+  "htmlContent": "<h1>Hi {{name}}!</h1><p>Enjoy 20% off your next visit!</p><p>Use code: <strong>SAVE20</strong></p>",
+  "recipients": [
+    {
+      "email": "john@example.com",
+      "name": "John",
+      "customData": { "discount_code": "JOHN20" }
+    },
+    {
+      "email": "jane@example.com",
+      "name": "Jane",
+      "customData": { "discount_code": "JANE20" }
+    },
+    {
+      "email": "bob@example.com",
+      "name": "Bob",
+      "customData": { "discount_code": "BOB20" }
+    }
+  ]
+}
+
+###
