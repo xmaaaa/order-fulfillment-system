@@ -1,15 +1,8 @@
 package com.xm.service.email;
 
-import com.sendgrid.Method;
-import com.sendgrid.Request;
-import com.sendgrid.Response;
-import com.sendgrid.SendGrid;
+import com.sendgrid.*;
 import com.sendgrid.helpers.mail.Mail;
-import com.sendgrid.helpers.mail.objects.Attachments;
-import com.sendgrid.helpers.mail.objects.Content;
-import com.sendgrid.helpers.mail.objects.Email;
-import com.sendgrid.helpers.mail.objects.Personalization;
-import com.sendgrid.helpers.mail.objects.TrackingSettings;
+import com.sendgrid.helpers.mail.objects.*;
 import jakarta.annotation.PostConstruct;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -17,19 +10,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 
-/**
- * @author XM
- * @date 2025/12/31
- */
 @Slf4j
 @SpringBootApplication
 @RestController
@@ -82,15 +69,24 @@ public class SendGridDemo {
 
             Email from = new Email(fromEmail, fromName);
             Email to = new Email(request.getTo(), request.getToName());
-            Content content = new Content("text/html", request.getHtmlContent() != null 
-                ? request.getHtmlContent() 
-                : "<p>" + request.getTextContent() + "</p>");
             
-            Mail mail = new Mail(from, request.getSubject(), to, content);
+            Mail mail = new Mail();
+            mail.setFrom(from);
+            mail.setSubject(request.getSubject());
+            
+            Personalization personalization = new Personalization();
+            personalization.addTo(to);
+            mail.addPersonalization(personalization);
 
-            // 添加纯文本版本
+            // ⚠️ SendGrid 要求顺序: text/plain 必须在 text/html 之前
             if (request.getTextContent() != null) {
                 mail.addContent(new Content("text/plain", request.getTextContent()));
+            }
+            if (request.getHtmlContent() != null) {
+                mail.addContent(new Content("text/html", request.getHtmlContent()));
+            } else if (request.getTextContent() != null) {
+                // 没有 HTML 时，用纯文本包一层
+                mail.addContent(new Content("text/html", "<p>" + request.getTextContent() + "</p>"));
             }
 
             // 添加附件
@@ -104,15 +100,13 @@ public class SendGridDemo {
                 }
             }
 
-            // 添加 CC/BCC
+            // 添加 CC/BCC（复用上面的 personalization）
             if (request.getCc() != null) {
-                Personalization personalization = mail.getPersonalization().get(0);
                 for (String cc : request.getCc()) {
                     personalization.addCc(new Email(cc));
                 }
             }
             if (request.getBcc() != null) {
-                Personalization personalization = mail.getPersonalization().get(0);
                 for (String bcc : request.getBcc()) {
                     personalization.addBcc(new Email(bcc));
                 }

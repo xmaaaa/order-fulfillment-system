@@ -5,7 +5,7 @@ POST http://localhost:8888/api/sms/send
 Content-Type: application/json
 
 {
-  "to": "+8615888441354",
+  "to": "+1443616",
   "message": "Hello from TeaTime! "
 }
 
@@ -16,7 +16,7 @@ POST http://localhost:8888/api/sms/send
 Content-Type: application/json
 
 {
-  "to": "+8615888441354",
+  "to": "+1443616",
   "message": "Check out our spa!",
   "mediaUrl": "https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400"
 }
@@ -24,7 +24,7 @@ Content-Type: application/json
 ###
 
 ### 发送预约提醒
-POST http://localhost:8888/api/sms/booking-reminder?to=+8615888441354&customerName=John&serviceName=Massage&appointmentTime=Tomorrow 2PM&staffName=Sarah
+POST http://localhost:8888/api/sms/booking-reminder?to=+1443616&customerName=John&serviceName=Massage&appointmentTime=Tomorrow 2PM&staffName=Sarah
 
 ###
 
@@ -40,7 +40,7 @@ POST http://localhost:8888/api/voice/call
 Content-Type: application/json
 
 {
-  "to": "+14436163656",
+  "to": "+1443616",
   "record": true
 }
 
@@ -51,14 +51,14 @@ POST http://localhost:8888/api/voice/call
 Content-Type: application/json
 
 {
-  "to": "+14436163656",
+  "to": "+1443616",
   "record": false
 }
 
 ###
 
 ### 发起预约确认电话
-POST http://localhost:8888/api/voice/booking-call?to=++14436163656&customerName=John&serviceName=Deep Tissue Massage&appointmentTime=Tomorrow at 2 PM
+POST http://localhost:8888/api/voice/booking-call?to=+1443616&customerName=John&serviceName=Deep Tissue Massage&appointmentTime=Tomorrow at 2 PM
 
 ###
 
