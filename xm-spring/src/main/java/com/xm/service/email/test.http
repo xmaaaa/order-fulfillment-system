@@ -6,7 +6,7 @@ Content-Type: application/json
 
 {
   "to": "customer@example.com",
-  "toName": "John Doe",
+  "toName": "Sijin",
   "subject": "Welcome to TeaTime Spa! 🎉",
   "textContent": "Thank you for joining us!",
   "htmlContent": "<h1>Welcome!</h1><p>Thank you for joining <strong>TeaTime Spa</strong>!</p>"
@@ -20,7 +20,7 @@ Content-Type: application/json
 
 {
   "to": "customer@example.com",
-  "toName": "John Doe",
+  "toName": "Sijin",
   "subject": "Your Invoice",
   "htmlContent": "<p>Please find your invoice attached.</p>",
   "attachments": [
@@ -40,7 +40,7 @@ Content-Type: application/json
 
 {
   "to": "customer@example.com",
-  "toName": "John Doe",
+  "toName": "Sijin",
   "subject": "Team Update",
   "htmlContent": "<p>Here's the latest update...</p>",
   "cc": ["manager@example.com"],
@@ -55,7 +55,7 @@ Content-Type: application/json
 
 {
   "to": "customer@example.com",
-  "toName": "John Doe",
+  "toName": "Sijin",
   "templateId": "d-xxxxxxxxxxxxxxxxxxxxxxxxxx",
   "dynamicData": {
     "first_name": "John",
@@ -73,8 +73,8 @@ POST http://localhost:8888/api/email/booking-confirmation
 Content-Type: application/json
 
 {
-  "customerEmail": "john@example.com",
-  "customerName": "John Doe",
+  "customerEmail": "customer@example.com",
+  "customerName": "Sijin",
   "bookingId": "BK-2025-001234",
   "serviceName": "Deep Tissue Massage",
   "staffName": "Sarah Johnson",
@@ -94,8 +94,8 @@ POST http://localhost:8888/api/email/booking-reminder
 Content-Type: application/json
 
 {
-  "customerEmail": "john@example.com",
-  "customerName": "John Doe",
+  "customerEmail": "customer@example.com",
+  "customerName": "Sijin",
   "bookingId": "BK-2025-001234",
   "serviceName": "Deep Tissue Massage",
   "staffName": "Sarah Johnson",
@@ -114,8 +114,8 @@ POST http://localhost:8888/api/email/payment-receipt
 Content-Type: application/json
 
 {
-  "customerEmail": "john@example.com",
-  "customerName": "John Doe",
+  "customerEmail": "customer@example.com",
+  "customerName": "Sijin",
   "transactionId": "TXN-2025-567890",
   "items": [
     { "name": "Deep Tissue Massage (60 min)", "amount": 120.00 },

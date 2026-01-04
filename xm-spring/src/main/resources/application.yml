@@ -26,3 +26,16 @@ management:
     db:
       enabled: false
 
+
+twilio:
+  account-sid: xxx
+  auth-token: xxx
+  api-key-sid: xxx
+  api-key-secret: xxx
+  phone-number: xxx
+
+sendgrid:
+  api-key: xxx
+  from-email: test@test.com
+  from-name: TeaTime Spa
+
