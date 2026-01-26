@@ -46,12 +46,6 @@ public class TwilioDemo {
     @Value("${twilio.auth-token}")
     private String authToken;
 
-    @Value("${twilio.api-key-sid}")
-    private String apiKeySid;
-
-    @Value("${twilio.api-key-secret}")
-    private String apiKeySecret;
-
     @Value("${twilio.phone-number}")
     private String twilioPhoneNumber;
 
