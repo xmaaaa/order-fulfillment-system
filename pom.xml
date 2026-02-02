@@ -11,6 +11,7 @@
     <modules>
         <module>xm-spring</module>
         <module>xm-base</module>
+        <module>xm-scenario</module>
     </modules>
 
     <parent>
