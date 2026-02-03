@@ -13,6 +13,8 @@ import java.util.List;
 /**
  * 订单聚合根。
  * 职责：维护订单头+订单行一致性；通过状态机控制状态流转。
+ *
+ * @author eddiema
  */
 public class Order {
 
@@ -20,7 +22,8 @@ public class Order {
     private final String userId;
     private final List<OrderLine> lines;
     private OrderState state;
-    private long version; // 乐观锁版本（可选，持久化时使用）
+    // 乐观锁版本（可选，持久化时使用）
+    private long version;
 
     public Order(OrderId id, String userId, List<OrderLine> lines) {
         if (id == null || userId == null || userId.isBlank() || lines == null || lines.isEmpty()) {
@@ -78,6 +81,7 @@ public class Order {
 
     /**
      * 带守卫的流转：守卫不通过则不允许流转（大厂常见：金额>0、地址已填等）。
+     * 流转时在聚合内做 version+1，供持久层 CAS（WHERE version = ? 且 SET version = version + 1）。
      */
     public boolean transition(OrderEvent event, TransitionGuard guard) {
         OrderState next = OrderStateMachine.next(state, event);
@@ -85,7 +89,7 @@ public class Order {
             return false;
         }
         this.state = next;
-        this.version++;
+        this.version++;  // 乐观锁：先 +1，持久层用「WHERE version = 旧值」做 CAS
         return true;
     }
 
