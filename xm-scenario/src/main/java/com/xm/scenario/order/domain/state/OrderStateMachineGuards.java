@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 
 /**
  * 订单状态机守卫实现：支付需金额>0、取消需在可取消状态等。
+ * 设计模式：Strategy 的具体实现 + Specification 的组合（defaultGuards 用 && 组合多条规格）。
  */
 public final class OrderStateMachineGuards {
 

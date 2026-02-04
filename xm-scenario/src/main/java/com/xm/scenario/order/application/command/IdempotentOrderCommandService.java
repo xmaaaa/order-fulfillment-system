@@ -9,10 +9,17 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 幂等装饰器：同一 idempotencyKey 在 TTL 内只执行一次，后续直接返回已缓存结果。
- * 大厂标配：防重复提交、Exactly-Once 语义。
- *
- * @author eddiema
+ * 幂等的一种实现：用「幂等键」做防重。
+ * <p>
+ * 幂等 = 多次执行结果一致。常见实现方式有：
+ * <ul>
+ *   <li>业务键/ID 判断：同一请求键只处理一次，后续返回已缓存结果（本类做法）；</li>
+ *   <li>乐观锁：version 不匹配不更新，重复请求 CAS 失败，结果一致；</li>
+ *   <li>状态机：已在目标状态不再流转，多次调用状态不变；</li>
+ *   <li>Token：一次性或带 TTL 的 token，同一 token 只认第一次。</li>
+ * </ul>
+ * 本类采用「幂等键 + 首次结果缓存」：同一 idempotencyKey 在 TTL 内只执行一次 createDraft，
+ * 后续相同 key 直接返回缓存的 OrderId，不重复下单。
  */
 public class IdempotentOrderCommandService implements OrderCommandService {
 

@@ -7,8 +7,8 @@ import java.util.Set;
 /**
  * 订单状态机：定义合法流转规则。
  * 可后续扩展为从配置/DB 加载。
- *
- * @author eddiema
+ * <p>
+ * 设计思想：<b>有限状态机 (FSM)</b> + <b>表驱动 (Table-Driven)</b>：用 Map&lt;State, Set&lt;Event&gt;&gt; 表达流转表。
  */
 public final class OrderStateMachine {
 
