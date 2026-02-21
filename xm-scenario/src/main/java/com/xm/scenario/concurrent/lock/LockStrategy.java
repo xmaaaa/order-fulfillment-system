@@ -3,8 +3,8 @@ package com.xm.scenario.concurrent.lock;
 import java.util.concurrent.TimeUnit;
 
 /**
- * 锁策略抽象：不同粒度（订单、库存、用户、第三方）由不同实现提供。
- * 可与 Redisson 等结合，在 xm-spring 中注入具体实现。
+ * 底层锁策略抽象（key 透传）。业务侧用 OrderLockStrategy、InventoryLockStrategy、UserLockStrategy，
+ * 三者语义与 lease 不同：订单 30s、库存 10s、用户 5s。
  */
 public interface LockStrategy {
 
