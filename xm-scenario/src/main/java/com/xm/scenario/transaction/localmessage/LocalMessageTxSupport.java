@@ -1,6 +1,8 @@
 package com.xm.scenario.transaction.localmessage;
 
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.function.Function;
 
 /**
  * 本地消息表事务支持：与业务表在同一 DB 事务中写入「待发消息」。
@@ -16,6 +18,21 @@ public interface LocalMessageTxSupport {
      * @param topic          目标 topic/queue
      */
     void executeInLocalTx(Runnable businessAction, Object message, String topic);
+
+    /**
+     * 带返回值的本地事务：先执行业务，用返回值构建消息体，再写入待发消息（同一事务）。
+     * 用于 createDraft 等需返回 ID 且消息体含该 ID 的场景。
+     */
+    default <T> T executeInLocalTxWithResult(Callable<T> action, Function<T, Object> messageBuilder, String topic) {
+        try {
+            T result = action.call();
+            executeInLocalTx(() -> {}, messageBuilder.apply(result), topic);
+            return result;
+        } catch (Exception e) {
+            if (e instanceof RuntimeException re) throw re;
+            throw new RuntimeException(e);
+        }
+    }
 
     /**
      * 标记消息已发送（扫表发送成功后调用）

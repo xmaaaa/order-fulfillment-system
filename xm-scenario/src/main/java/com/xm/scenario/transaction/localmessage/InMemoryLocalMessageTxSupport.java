@@ -6,7 +6,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * 本地消息表的内存实现（学习/单测用）。生产可用 JDBC 与业务表同库同事务。
+ * 学习用：本地消息表内存实现，无 DB，顺序执行。生产用 JdbcLocalMessageTxSupport。
  */
 public class InMemoryLocalMessageTxSupport implements LocalMessageTxSupport {
 
@@ -19,6 +19,7 @@ public class InMemoryLocalMessageTxSupport implements LocalMessageTxSupport {
         long id = idGen.incrementAndGet();
         store.add(new Entry(id, message == null ? "" : message.toString(), topic, System.currentTimeMillis(), false));
     }
+
 
     @Override
     public void markSent(long messageId) {
