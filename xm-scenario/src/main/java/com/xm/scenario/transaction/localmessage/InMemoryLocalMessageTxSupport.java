@@ -1,9 +1,9 @@
 package com.xm.scenario.transaction.localmessage;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 
 /**
  * 学习用：本地消息表内存实现，无 DB，顺序执行。生产用 JdbcLocalMessageTxSupport。
@@ -14,12 +14,16 @@ public class InMemoryLocalMessageTxSupport implements LocalMessageTxSupport {
     private final List<Entry> store = new CopyOnWriteArrayList<>();
 
     @Override
-    public void executeInLocalTx(Runnable businessAction, Object message, String topic) {
+    public void executeInLocalTx(Runnable businessAction, Supplier<Object> messageSupplier, String topic) {
         businessAction.run();
-        long id = idGen.incrementAndGet();
-        store.add(new Entry(id, message == null ? "" : message.toString(), topic, System.currentTimeMillis(), false));
+        Object message = messageSupplier.get();
+        insertMessage(message == null ? "" : message.toString(), topic);
     }
 
+    private void insertMessage(String payload, String topic) {
+        long id = idGen.incrementAndGet();
+        store.add(new Entry(id, payload, topic, System.currentTimeMillis(), false));
+    }
 
     @Override
     public void markSent(long messageId) {

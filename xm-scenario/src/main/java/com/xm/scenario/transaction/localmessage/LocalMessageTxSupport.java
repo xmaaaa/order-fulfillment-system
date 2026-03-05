@@ -1,38 +1,40 @@
 package com.xm.scenario.transaction.localmessage;
 
+import org.checkerframework.checker.nullness.qual.Nullable;
+
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
- * 本地消息表事务支持：与业务表在同一 DB 事务中写入「待发消息」。
- * 定时任务或 MQ 消费者扫表发送，下游幂等消费。
+ * 本地消息表：业务与 outbox 同事务写入，定时任务扫表发 MQ，下游幂等消费。
  */
 public interface LocalMessageTxSupport {
 
     /**
-     * 在本地事务中执行业务逻辑并写入待发消息
-     *
-     * @param businessAction 业务逻辑（如落订单表）
-     * @param message        要发送的消息体（如订单已创建事件）
-     * @param topic          目标 topic/queue
+     * 事务内执行业务、用返回值构建消息、写入 outbox，三者原子。
      */
-    void executeInLocalTx(Runnable businessAction, Object message, String topic);
-
-    /**
-     * 带返回值的本地事务：先执行业务，用返回值构建消息体，再写入待发消息（同一事务）。
-     * 用于 createDraft 等需返回 ID 且消息体含该 ID 的场景。
-     */
+    @SuppressWarnings("unchecked")
     default <T> T executeInLocalTxWithResult(Callable<T> action, Function<T, Object> messageBuilder, String topic) {
-        try {
-            T result = action.call();
-            executeInLocalTx(() -> {}, messageBuilder.apply(result), topic);
-            return result;
-        } catch (Exception e) {
-            if (e instanceof RuntimeException re) throw re;
-            throw new RuntimeException(e);
-        }
+        final Object[] resultHolder = new Object[1];
+        executeInLocalTx(
+                () -> {
+                    try {
+                        resultHolder[0] = action.call();
+                    } catch (Exception e) {
+                        if (e instanceof RuntimeException re) throw re;
+                        throw new RuntimeException(e);
+                    }
+                },
+                () -> messageBuilder.apply((T) resultHolder[0]),
+                topic
+        );
+        return (T) resultHolder[0];
     }
+
+    /** 内部：执行业务后调用 messageSupplier 获取消息并写入 outbox */
+    void executeInLocalTx(Runnable businessAction, Supplier<Object> messageSupplier, String topic);
 
     /**
      * 标记消息已发送（扫表发送成功后调用）
