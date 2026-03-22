@@ -1,0 +1,20 @@
+# Order Fulfillment Reference Architecture
+# Runs in memory mode by default (no DB/Redis required)
+
+services:
+  app:
+    build: .
+    ports:
+      - "8888:8888"
+    environment:
+      - SERVER_PORT=8888
+      - XM_SCENARIO_LOCK=memory
+      - XM_SCENARIO_TRANSACTION=memory
+      - XM_SCENARIO_TCC=learning
+      - XM_SCENARIO_SAGA=learning
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8888/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s

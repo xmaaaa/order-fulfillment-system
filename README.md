@@ -1,6 +1,52 @@
-# xm-java
+# Order Fulfillment Reference Architecture
 
-A Java learning project covering design patterns, algorithms, Spring Web, and production-grade practices for **order fulfillment**—including DDD, distributed transactions, and high-concurrency control.
+> DDD · Distributed Transactions · Multi-Granularity Locks
+
+A reference implementation of an **order fulfillment system** demonstrating enterprise-grade architecture: Domain-Driven Design, distributed transactions (TCC & Saga), local message table, multi-granularity locking, circuit breaking, and idempotent consumption.
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Java 21](https://img.shields.io/badge/Java-21-orange.svg)](https://openjdk.org/projects/jdk/21/)
+[![Spring Boot 3.2](https://img.shields.io/badge/Spring%20Boot-3.2-brightgreen.svg)](https://spring.io/projects/spring-boot)
+
+---
+
+## Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              Order Fulfillment System                             │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│  ┌─────────────┐     ┌──────────────────┐     ┌─────────────────────────────┐   │
+│  │   REST API  │────▶│  Application     │────▶│  Domain (Order Aggregate)    │   │
+│  │  (Controller)│     │  (Use Cases)     │     │  State Machine · Guards     │   │
+│  └─────────────┘     └────────┬─────────┘     └──────────────┬──────────────┘   │
+│                                │                             │                   │
+│                                ▼                             ▼                   │
+│  ┌─────────────────────────────────────────────────────────────────────────┐    │
+│  │  Infrastructure: Repository · PaymentClient · InventoryClient · Locks   │    │
+│  └─────────────────────────────────────────────────────────────────────────┘    │
+│                                                                                  │
+│  Cross-Cutting: TCC/Saga Orchestrator · Local Message Table · Circuit Breaker   │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Layering**: App → Domain → Repository (clean architecture). Order domain owns state machine and invariants; application layer orchestrates locks, events, and distributed transactions.
+
+See [docs/architecture.md](docs/architecture.md) for the full architecture deep-dive.
+
+---
+
+## Key Design Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| **TCC + Saga both** | TCC for short, strong-consistency flows; Saga for long-running, compensation-based flows. Configurable per use case. |
+| **Local message table** | Outbox pattern for reliable event publishing without 2PC. Downstream consumes with idempotency. |
+| **Lock at TCC entry** | LockPolicy wraps the orchestrator, not individual Try phases. Avoids redundant locking and keeps Try lightweight. |
+| **Anti-corruption layers** | PaymentClient/InventoryClient abstract external services. Swap Stub → Feign for real integration. |
+| **State machine in aggregate** | OrderState/OrderEvent + TransitionGuard keep transitions explicit and testable. |
+
+ADRs: [docs/adr/](docs/adr/)
 
 ---
 
@@ -17,48 +63,6 @@ A Java learning project covering design patterns, algorithms, Spring Web, and pr
 
 ---
 
-## Module Structure
-
-```
-xm-java/
-├── xm-base/          # Fundamentals: design patterns, algorithms, concurrency, I/O
-├── xm-scenario/      # Complex scenarios: DDD, state machine, locks, distributed transactions
-├── xm-spring/        # Spring Boot application: REST API, Seata, Redisson integration
-└── pom.xml
-```
-
-### xm-base
-
-- **Design Patterns** — 23 GoF patterns (creational, structural, behavioral)
-- **Algorithms** — Data structures, sorting, graphs, dynamic programming
-- **Concurrency** — Thread pools, AQS, synchronization primitives
-- **I/O** — NIO, Netty examples
-
-### xm-scenario
-
-Order fulfillment as the unified domain, integrating DDD, state machines, locks, and distributed transactions:
-
-- **DDD** — Order aggregate root, OrderLine entity, OrderId value object; payment/inventory anti-corruption layers
-- **State Machine** — OrderState/OrderEvent transitions, TransitionGuard
-- **Locks** — LockStrategy, LockPolicy, multi-granularity locks (order/inventory/user)
-- **Distributed Transactions** — Local message table, TCC, Saga
-- **Idempotent Consumption** — IdempotentMessageProcessor for Exactly-Once semantics
-- **Circuit Breaker** — Resilience4j decorators for PaymentClient/InventoryClient
-- **Timeout Handling** — Auto-cancel SUBMITTED orders after payment timeout
-
-See [xm-scenario/README.md](xm-scenario/README.md) and [xm-scenario/docs/ARCHITECTURE.md](xm-scenario/docs/ARCHITECTURE.md) for details.
-
-### xm-spring
-
-Spring Boot application that wires all modules:
-
-- **Order API** — CRUD, submit, pay, ship, cancel via `/order`
-- **TCC/Saga** — `/order/{id}/submit-with-payment-tcc`, `/order/{id}/submit-with-payment-saga`
-- **Third-Party Integrations** — Stripe, Twilio, SendGrid
-- **Configuration** — Switchable lock, transaction, TCC, Saga, circuit breaker, timeout policies
-
----
-
 ## Quick Start
 
 ### Prerequisites
@@ -66,38 +70,34 @@ Spring Boot application that wires all modules:
 - JDK 21+
 - Maven 3.8+
 
-### Run the Application
+### Run with Maven
 
 ```bash
 mvn spring-boot:run -pl xm-spring
 ```
 
-Or with explicit main class:
+Default port: `8888`. Uses in-memory storage by default (no DB required).
+
+### Run with Docker
 
 ```bash
-mvn exec:java -pl xm-spring -Dexec.mainClass="com.xm.web.XmBootStarter"
+docker compose up -d
 ```
 
-Default port: `8888`.
+App: http://localhost:8888
 
-### Standalone Demo (No Spring)
-
-```bash
-mvn exec:java -pl xm-scenario -Dexec.mainClass="com.xm.scenario.ScenarioDemo"
-```
-
-### Order Flow (Without TCC/Saga)
+### Order Flow (Basic)
 
 ```bash
-# 1. Create draft order
+# 1. Create draft
 curl -X POST http://localhost:8888/order/draft \
   -H "Content-Type: application/json" \
   -d '{"userId":"user1","lines":[{"skuId":"SKU-001","quantity":2,"price":99.00}]}'
 
-# 2. Submit order
+# 2. Submit
 curl -X POST http://localhost:8888/order/{orderId}/submit
 
-# 3. Mark as paid
+# 3. Mark paid
 curl -X POST "http://localhost:8888/order/{orderId}/paid?paymentId=PAY-001"
 
 # 4. Ship
@@ -106,119 +106,90 @@ curl -X POST http://localhost:8888/order/{orderId}/ship
 
 ### Order Flow (TCC / Saga)
 
-Configure `xm.scenario.tcc` or `xm.scenario.saga` in `application.yml` first:
+Configure `xm.scenario.tcc` or `xm.scenario.saga` in `application.yml`:
 
 ```bash
-# TCC: submit with payment
 curl -X POST "http://localhost:8888/order/{orderId}/submit-with-payment-tcc?amount=198&userId=user1"
-
-# Saga: submit with payment
 curl -X POST "http://localhost:8888/order/{orderId}/submit-with-payment-saga?amount=198&userId=user1"
 ```
 
 ---
 
-## Configuration
-
-`xm.scenario` settings in `application.yml`:
-
-| Property | Values | Description |
-|----------|--------|--------------|
-| `lock` | `memory` / `redisson` / unset | Lock strategy: in-memory, Redisson, or none |
-| `transaction` | `memory` / `jdbc` / unset | Local message table: in-memory or JDBC |
-| `tcc` | `learning` / `seata` | TCC: learning implementation or Seata |
-| `saga` | `learning` / `seata` | Saga: learning implementation or Seata state machine |
-| `circuit-breaker` | `true` / `false` | Wrap Payment/Inventory clients with Resilience4j |
-| `order-timeout.enabled` | `true` / `false` | Auto-cancel SUBMITTED orders after timeout |
-| `order-timeout.interval-ms` | number | Timeout scan interval (ms) |
-
-Example:
-
-```yaml
-xm:
-  scenario:
-    lock: memory
-    transaction: memory
-    tcc: learning
-    saga: learning
-    circuit-breaker: false
-    order-timeout:
-      enabled: false
-      interval-ms: 60000
-```
-
----
-
-## Database (Optional)
-
-Required when using `xm.scenario.transaction=jdbc` or `xm.scenario.saga=seata`:
-
-| Schema | Path | Purpose |
-|--------|------|---------|
-| Outbox | `xm-scenario/src/main/resources/db/outbox_schema.sql` | Local message table |
-| Order | `xm-scenario/src/main/resources/db/order_schema.sql` | Order table |
-| Saga | `xm-spring/src/main/resources/db/saga_schema.sql` | Seata Saga state machine |
-
----
-
-## Project Layout
+## Module Structure
 
 ```
 xm-java/
-├── xm-base/                    # Fundamentals
-│   └── src/main/java/com/xm/
-│       ├── designpattern/      # Design patterns
-│       ├── dp/                 # Dynamic programming
-│       ├── graph/              # Graph algorithms
-│       ├── multithread/        # Concurrency
-│       ├── io/                 # NIO, Netty
-│       └── ...
-├── xm-scenario/                # Complex scenarios
-│   └── src/main/java/com/xm/scenario/
-│       ├── order/              # Order domain (DDD)
-│       ├── payment/            # Payment anti-corruption layer
-│       ├── inventory/          # Inventory anti-corruption layer
-│       ├── concurrent/         # Locks
-│       ├── transaction/        # Distributed transactions
-│       └── shared/             # Idempotency, events, retry, etc.
-├── xm-spring/                  # Application
-│   └── src/main/java/com/xm/
-│       ├── web/                # OrderController, etc.
-│       ├── config/             # Configuration
-│       ├── transaction/        # Seata TCC/Saga
-│       └── service/            # Third-party integrations
-└── README.md
+├── xm-scenario/      # Domain & infrastructure: DDD, state machine, locks, transactions
+├── xm-spring/        # Spring Boot app: REST API, Seata, Redisson, config
+├── xm-base/          # Extras: design patterns, algorithms (standalone)
+└── docs/             # Architecture, ADRs
 ```
+
+| Module | Responsibility |
+|--------|----------------|
+| **xm-scenario** | Order aggregate, OrderRepository, TCC/Saga participants, LockPolicy, LocalMessageTxSupport, IdempotentMessageProcessor |
+| **xm-spring** | OrderController, Seata integration, CircuitBreaker decorators, OrderTimeoutScheduler |
+| **xm-base** | Design patterns, algorithms, concurrency (optional) |
+
+---
+
+## Configuration
+
+`xm.scenario` in `application.yml`:
+
+| Property | Values | Description |
+|----------|--------|--------------|
+| `lock` | `memory` / `redisson` | In-memory or Redisson distributed lock |
+| `transaction` | `memory` / `jdbc` | Local message table backend |
+| `tcc` | `learning` / `seata` | TCC implementation |
+| `saga` | `learning` / `seata` | Saga implementation |
+| `circuit-breaker` | `true` / `false` | Resilience4j on Payment/Inventory clients |
+| `order-timeout.enabled` | `true` / `false` | Auto-cancel SUBMITTED after timeout |
 
 ---
 
 ## Capabilities
 
-| Capability | Status | Location |
-|------------|--------|----------|
-| DDD Aggregate Root | ✅ | Order domain |
-| State Machine + Guards | ✅ | OrderState |
-| Optimistic Locking (CAS) | ✅ | Order.version |
-| Multi-Granularity Locks | ✅ | LockPolicy |
-| Distributed Lock | ✅ | Redisson |
-| TCC | ✅ | Simple / Seata |
-| Saga | ✅ | Simple / Seata JSON state machine |
-| Local Message Table | ✅ | InMemory / Jdbc |
-| Idempotent Consumption | ✅ | IdempotentMessageProcessor |
-| Circuit Breaker | ✅ | Resilience4j |
-| Timeout Auto-Transition | ✅ | OrderTimeoutScheduler |
-| CQRS Read Model | ✅ | OrderQueryService |
-| Domain Events | ✅ | DomainEventPublisher |
+| Capability | Implementation |
+|------------|-----------------|
+| DDD Aggregate Root | Order, OrderLine, OrderId |
+| State Machine + Guards | OrderState, OrderEvent, TransitionGuard |
+| Optimistic Locking | Order.version, CAS in Repository |
+| Multi-Granularity Locks | LockPolicy (order → inventory → user) |
+| Distributed Lock | RedissonLockStrategy |
+| TCC | SimpleTccCoordinator / Seata |
+| Saga | SimpleSagaOrchestrator / Seata JSON state machine |
+| Local Message Table | InMemory / JdbcLocalMessageTxSupport |
+| Idempotent Consumption | IdempotentMessageProcessor |
+| Circuit Breaker | Resilience4j on PaymentClient, InventoryClient |
+| Timeout Auto-Transition | OrderTimeoutScheduler |
+| CQRS Read Model | OrderQueryService |
+| Domain Events | DomainEventPublisher |
 
 ---
 
 ## Documentation
 
-- [xm-scenario README](xm-scenario/README.md) — Learning path, package structure, xm-spring integration
-- [xm-scenario Architecture](xm-scenario/docs/ARCHITECTURE.md) — Layering, distributed transactions, lock strategy
-- [xm-scenario Roadmap](xm-scenario/ROADMAP.md) — Implemented and planned capabilities
+- [Architecture](docs/architecture.md) — Layering, modules, data flow
+- [ADRs](docs/adr/) — Architecture decision records
+- [xm-scenario](xm-scenario/README.md) — Domain package structure
+- [xm-scenario Roadmap](xm-scenario/ROADMAP.md) — Implemented & planned
 
 ---
+
+## Database (Optional)
+
+Required for `transaction=jdbc` or `saga=seata`:
+
+- `xm-scenario/src/main/resources/db/outbox_schema.sql`
+- `xm-scenario/src/main/resources/db/order_schema.sql`
+- `xm-spring/src/main/resources/db/saga_schema.sql`
+
+---
+
+## License
+
+MIT
 
 ## Author
 
