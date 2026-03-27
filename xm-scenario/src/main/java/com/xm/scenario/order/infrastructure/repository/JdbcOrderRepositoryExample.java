@@ -15,7 +15,7 @@ import java.util.List;
  * 大厂常见：DB 侧 version+1，避免应用层与 DB 不一致；affectedRows=0 即冲突重试或抛异常。
  *
  * 表结构示例：
- *   t_order(id, user_id, state, version, created_at)
+ *   t_order(id, user_id, state, version, submitted_at)
  *   t_order_line(id, order_id, sku_id, quantity, price)
  */
 public class JdbcOrderRepositoryExample implements OrderRepository {
@@ -29,8 +29,8 @@ public class JdbcOrderRepositoryExample implements OrderRepository {
     @Override
     public void save(Order order) {
         jdbc.update(
-                "INSERT INTO t_order (id, user_id, state, version) VALUES (?, ?, ?, ?)",
-                order.getId().getValue(), order.getUserId(), order.getState().name(), order.getVersion()
+                "INSERT INTO t_order (id, user_id, state, version, submitted_at) VALUES (?, ?, ?, ?, ?)",
+                order.getId().getValue(), order.getUserId(), order.getState().name(), order.getVersion(), order.getSubmittedAtEpochMs()
         );
         for (OrderLine line : order.getLines()) {
             jdbc.update(
@@ -43,7 +43,7 @@ public class JdbcOrderRepositoryExample implements OrderRepository {
     @Override
     public Order findById(OrderId id) {
         List<Order> list = jdbc.query(
-                "SELECT id, user_id, state, version FROM t_order WHERE id = ?",
+                "SELECT id, user_id, state, version, COALESCE(submitted_at, 0) as submitted_at FROM t_order WHERE id = ?",
                 orderRowMapper, id.getValue()
         );
         if (list.isEmpty()) return null;
@@ -57,7 +57,7 @@ public class JdbcOrderRepositoryExample implements OrderRepository {
                 ),
                 id.getValue()
         );
-        return new Order(head.getId(), head.getUserId(), lines, head.getState(), head.getVersion());
+        return new Order(head.getId(), head.getUserId(), lines, head.getState(), head.getVersion(), head.getSubmittedAtEpochMs());
     }
 
     /**
@@ -68,8 +68,8 @@ public class JdbcOrderRepositoryExample implements OrderRepository {
     public boolean updateVersion(Order order) {
         long expectedVersion = order.getVersion() - 1;  // 聚合内已 +1，库中应是旧值
         int rows = jdbc.update(
-                "UPDATE t_order SET state = ?, version = version + 1 WHERE id = ? AND version = ?",
-                order.getState().name(), order.getId().getValue(), expectedVersion
+                "UPDATE t_order SET state = ?, version = version + 1, submitted_at = COALESCE(NULLIF(?, 0), submitted_at) WHERE id = ? AND version = ?",
+                order.getState().name(), order.getSubmittedAtEpochMs(), order.getId().getValue(), expectedVersion
         );
         if (rows == 0) return false;
         // 可选：再查一次把最新 version 同步到内存，或由上层重试时重新 load
@@ -81,6 +81,16 @@ public class JdbcOrderRepositoryExample implements OrderRepository {
         String userId = rs.getString("user_id");
         OrderState state = OrderState.valueOf(rs.getString("state"));
         long version = rs.getLong("version");
-        return new Order(id, userId, List.of(), state, version);
+        long submittedAt = rs.getLong("submitted_at");
+        return new Order(id, userId, List.of(), state, version, submittedAt);
     };
+
+    @Override
+    public List<OrderId> findSubmittedOrderIdsOlderThan(long submittedBeforeEpochMs) {
+        return jdbc.query(
+                "SELECT id FROM t_order WHERE state = ? AND submitted_at > 0 AND submitted_at < ?",
+                (rs, i) -> new OrderId(rs.getString("id")),
+                OrderState.SUBMITTED.name(), submittedBeforeEpochMs
+        );
+    }
 }

@@ -3,8 +3,10 @@ package com.xm.scenario.order.infrastructure.repository;
 import com.xm.scenario.order.domain.model.Order;
 import com.xm.scenario.order.domain.model.OrderId;
 import com.xm.scenario.order.domain.model.OrderRepository;
+import com.xm.scenario.order.domain.state.OrderState;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -29,7 +31,7 @@ public class InMemoryOrderRepository implements OrderRepository {
             return null;
         }
         // 返回副本，保证乐观锁：先 load 再 transition 再 updateVersion 时，store 里仍是旧 version
-        return new Order(o.getId(), o.getUserId(), new ArrayList<>(o.getLines()), o.getState(), o.getVersion());
+        return new Order(o.getId(), o.getUserId(), new ArrayList<>(o.getLines()), o.getState(), o.getVersion(), o.getSubmittedAtEpochMs());
     }
 
     /**
@@ -48,5 +50,13 @@ public class InMemoryOrderRepository implements OrderRepository {
         });
         // 只有真正写入了本次 order 才返回 true
         return replaced == order;
+    }
+
+    @Override
+    public List<OrderId> findSubmittedOrderIdsOlderThan(long submittedBeforeEpochMs) {
+        return store.values().stream()
+                .filter(o -> o.getState() == OrderState.SUBMITTED && o.getSubmittedAtEpochMs() > 0 && o.getSubmittedAtEpochMs() < submittedBeforeEpochMs)
+                .map(Order::getId)
+                .toList();
     }
 }

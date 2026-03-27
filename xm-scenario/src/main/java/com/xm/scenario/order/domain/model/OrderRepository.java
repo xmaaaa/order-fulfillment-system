@@ -1,5 +1,7 @@
 package com.xm.scenario.order.domain.model;
 
+import java.util.List;
+
 /**
  * 订单仓储（接口在领域层，实现在 infrastructure）。
  * 乐观锁约定：load 后聚合内 transition() 会 version++，updateVersion(order) 时持久层必须做 CAS：
@@ -14,4 +16,10 @@ public interface OrderRepository {
 
     /** 乐观锁 CAS：仅当存储中 version == order.version-1 时写入 order（order.version 已在聚合内 +1） */
     boolean updateVersion(Order order);
+
+    /**
+     * 查询超时未支付的订单 ID（SUBMITTED 且 submittedAt 早于指定时间戳）。
+     * 用于定时任务触发自动取消。
+     */
+    List<OrderId> findSubmittedOrderIdsOlderThan(long submittedBeforeEpochMs);
 }
