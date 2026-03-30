@@ -24,6 +24,8 @@ public class Order {
     private OrderState state;
     // 乐观锁版本（可选，持久化时使用）
     private long version;
+    /** 提交时间戳（ms），用于超时自动取消；仅 SUBMITTED 时有效 */
+    private long submittedAtEpochMs;
 
     public Order(OrderId id, String userId, List<OrderLine> lines) {
         if (id == null || userId == null || userId.isBlank() || lines == null || lines.isEmpty()) {
@@ -34,15 +36,22 @@ public class Order {
         this.lines = new ArrayList<>(lines);
         this.state = OrderState.DRAFT;
         this.version = 0L;
+        this.submittedAtEpochMs = 0L;
     }
 
     /** 用于从持久化还原 */
     public Order(OrderId id, String userId, List<OrderLine> lines, OrderState state, long version) {
+        this(id, userId, lines, state, version, 0L);
+    }
+
+    /** 用于从持久化还原（含 submittedAt） */
+    public Order(OrderId id, String userId, List<OrderLine> lines, OrderState state, long version, long submittedAtEpochMs) {
         this.id = id;
         this.userId = userId;
         this.lines = new ArrayList<>(lines);
         this.state = state;
         this.version = version;
+        this.submittedAtEpochMs = submittedAtEpochMs;
     }
 
     public OrderId getId() {
@@ -63,6 +72,10 @@ public class Order {
 
     public long getVersion() {
         return version;
+    }
+
+    public long getSubmittedAtEpochMs() {
+        return submittedAtEpochMs;
     }
 
     public BigDecimal getTotalAmount() {
@@ -90,6 +103,9 @@ public class Order {
         }
         this.state = next;
         this.version++;  // 乐观锁：先 +1，持久层用「WHERE version = 旧值」做 CAS
+        if (next == OrderState.SUBMITTED) {
+            this.submittedAtEpochMs = System.currentTimeMillis();
+        }
         return true;
     }
 
