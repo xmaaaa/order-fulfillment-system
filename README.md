@@ -8,6 +8,24 @@ A reference implementation of an **order fulfillment system** demonstrating ente
 [![Java 21](https://img.shields.io/badge/Java-21-orange.svg)](https://openjdk.org/projects/jdk/21/)
 [![Spring Boot 3.2](https://img.shields.io/badge/Spring%20Boot-3.2-brightgreen.svg)](https://spring.io/projects/spring-boot)
 
+**CI:** `.github/workflows/ci.yml` runs `mvn verify` on push/PR. After you publish the repo, add a badge: `https://github.com/<owner>/<repo>/actions/workflows/ci.yml/badge.svg`.
+
+---
+
+## Observability
+
+| What | Where |
+|------|--------|
+| Health / metrics / Prometheus | `/actuator/health`, `/actuator/metrics`, `/actuator/prometheus` |
+| Request trace id | `TraceIdFilter` — propagates `X-Trace-Id`, sets MDC key `traceId` for logs |
+| App metadata | `/actuator/info` |
+
+---
+
+## Outbox pipeline
+
+When `xm.scenario.transaction` is `memory` or `jdbc`, pending outbox rows are relayed on a schedule: scan → idempotent consumer (log) → `markSent`. See [docs/outbox-pipeline.md](docs/outbox-pipeline.md). Toggle with `xm.scenario.outbox-relay.enabled`.
+
 ---
 
 ## Architecture Overview
@@ -58,7 +76,7 @@ ADRs: [docs/adr/](docs/adr/)
 | Framework | Spring Boot 3.2, Spring Cloud |
 | Distributed Transactions | Seata (TCC, Saga) |
 | Distributed Lock | Redisson |
-| Circuit Breaker | Resilience4j |
+| Circuit Breaker | Alibaba Sentinel |
 | Database | MySQL, JDBC |
 
 ---
@@ -128,7 +146,7 @@ xm-java/
 | Module | Responsibility |
 |--------|----------------|
 | **xm-scenario** | Order aggregate, OrderRepository, TCC/Saga participants, LockPolicy, LocalMessageTxSupport, IdempotentMessageProcessor |
-| **xm-spring** | OrderController, Seata integration, CircuitBreaker decorators, OrderTimeoutScheduler |
+| **xm-spring** | OrderController, Seata integration, Sentinel client decorators, OrderTimeoutScheduler |
 | **xm-base** | Design patterns, algorithms, concurrency (optional) |
 
 ---
@@ -143,8 +161,10 @@ xm-java/
 | `transaction` | `memory` / `jdbc` | Local message table backend |
 | `tcc` | `learning` / `seata` | TCC implementation |
 | `saga` | `learning` / `seata` | Saga implementation |
-| `circuit-breaker` | `true` / `false` | Resilience4j on Payment/Inventory clients |
-| `order-timeout.enabled` | `true` / `false` | Auto-cancel SUBMITTED after timeout |
+| `circuit-breaker` | `true` / `false` | Sentinel degrade on Payment/Inventory clients |
+| `order-timeout.enabled` | `true` / `false` | Auto-cancel SUBMITTED after payment timeout |
+| `order-timeout.scan-interval-ms` | number | How often to scan (ms) |
+| `order-timeout.payment-timeout` | Duration (e.g. `30m`) | Max wait in SUBMITTED before cancel |
 
 ---
 
@@ -161,7 +181,7 @@ xm-java/
 | Saga | SimpleSagaOrchestrator / Seata JSON state machine |
 | Local Message Table | InMemory / JdbcLocalMessageTxSupport |
 | Idempotent Consumption | IdempotentMessageProcessor |
-| Circuit Breaker | Resilience4j on PaymentClient, InventoryClient |
+| Circuit Breaker | Sentinel (`paymentClient`, `inventoryClient` resources) |
 | Timeout Auto-Transition | OrderTimeoutScheduler |
 | CQRS Read Model | OrderQueryService |
 | Domain Events | DomainEventPublisher |
@@ -171,6 +191,7 @@ xm-java/
 ## Documentation
 
 - [Architecture](docs/architecture.md) — Layering, modules, data flow
+- [Outbox pipeline](docs/outbox-pipeline.md) — Local message table relay + idempotent consumer
 - [ADRs](docs/adr/) — Architecture decision records
 - [xm-scenario](xm-scenario/README.md) — Domain package structure
 - [xm-scenario Roadmap](xm-scenario/ROADMAP.md) — Implemented & planned

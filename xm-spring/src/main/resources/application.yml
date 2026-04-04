@@ -1,6 +1,11 @@
 server:
   port: 8888
 
+info:
+  app:
+    name: order-fulfillment
+    description: Reference architecture for order fulfillment
+
 spring:
   application:
     #项目名称必填，在注册中心唯一
@@ -21,7 +26,60 @@ redis:
   enabled: false
   address: "redis://localhost:6379"
 
+# Seata 配置。tcc=seata 时需 enabled=true 且启动 Seata Server；tcc=learning 时建议 enabled=false
+seata:
+  enabled: false
+  application-id: xm-service
+  tx-service-group: default_tx_group
+  service:
+    vgroup-mapping:
+      default_tx_group: default
+    grouplist:
+      default: 127.0.0.1:7091
+  config:
+    type: file
+  registry:
+    type: file
+
+# 订单场景：lock=memory|redisson|none；transaction=memory|jdbc|不配置；tcc=learning|seata；saga=learning
+xm:
+  scenario:
+    lock: memory
+    transaction: memory
+    tcc: learning
+    saga: learning
+    # 熔断：true 时用 Sentinel 装饰 PaymentClient/InventoryClient（与 Dashboard 联动）
+    circuit-breaker: false
+    # 订单超时：SUBMITTED 超时未支付自动取消
+    order-timeout:
+      enabled: false
+      scan-interval-ms: 60000   # 扫描间隔 ms
+      payment-timeout: 30m      # 待支付最长等待时间（Duration）
+    # Outbox：扫本地消息表 → 幂等消费（日志模拟下游），需 transaction=memory|jdbc
+    outbox-relay:
+      enabled: true
+      interval-ms: 5000
+
+# OpenTelemetry：OTLP HTTP 导出（本地见 docker-compose.observability.yml）
+# 不需要后端时：设 management.tracing.export.enabled=false 或 unset OTEL_EXPORTER_OTLP_ENDPOINT 并关闭导出
 management:
+  tracing:
+    enabled: false
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318/v1/traces}
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
   health:
     db:
       enabled: false
