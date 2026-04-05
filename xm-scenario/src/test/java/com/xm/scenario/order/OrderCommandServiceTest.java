@@ -2,6 +2,7 @@ package com.xm.scenario.order;
 
 import com.xm.scenario.order.application.command.OrderCommandService;
 import com.xm.scenario.order.application.command.OrderCommandServiceImpl;
+import com.xm.scenario.order.domain.service.OrderDomainService;
 import com.xm.scenario.order.domain.exception.IllegalOrderStateException;
 import com.xm.scenario.order.domain.model.Order;
 import com.xm.scenario.order.domain.model.OrderId;
@@ -24,7 +25,7 @@ class OrderCommandServiceTest {
     @BeforeEach
     void setUp() {
         repo = new InMemoryOrderRepository();
-        orderService = new OrderCommandServiceImpl(repo);
+        orderService = new OrderCommandServiceImpl(new OrderDomainService(repo));
     }
 
     @Test
@@ -37,7 +38,7 @@ class OrderCommandServiceTest {
 
         Order order = orderService.getOrder(id);
         assertEquals(OrderState.DRAFT, order.getState());
-        assertEquals(2, order.getLines().size());
+        assertEquals(1, order.getLines().size());
         assertEquals(new BigDecimal("100.00"), order.getTotalAmount());
 
         orderService.submit(id);

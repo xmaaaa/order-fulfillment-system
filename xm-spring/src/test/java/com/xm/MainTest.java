@@ -11,7 +11,10 @@ import org.springframework.boot.test.context.SpringBootTest;
  * @author XM
  * @date 2025/5/18
  */
-@SpringBootTest(classes = XmBootStarter.class)
+@SpringBootTest(classes = XmBootStarter.class, properties = {
+        // 单测不连 Jaeger：无 endpoint 时不注册 OTLP exporter（与主配置合并，不覆盖 seata 等）
+        "management.otlp.tracing.endpoint="
+})
 public class MainTest {
 
     @Autowired
