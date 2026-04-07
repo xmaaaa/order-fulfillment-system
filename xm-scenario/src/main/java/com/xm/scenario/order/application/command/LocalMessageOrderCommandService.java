@@ -1,10 +1,8 @@
 package com.xm.scenario.order.application.command;
 
-import com.google.common.base.Supplier;
 import com.xm.scenario.order.domain.model.Order;
 import com.xm.scenario.order.domain.model.OrderId;
 import com.xm.scenario.transaction.localmessage.LocalMessageTxSupport;
-import io.micrometer.observation.Observation;
 
 import java.util.List;
 
