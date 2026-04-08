@@ -1,0 +1,10 @@
+# 可选：本地 OpenTelemetry 后端（OTLP HTTP → Jaeger UI）
+# 启动：docker compose -f docker-compose.observability.yml up -d
+# 应用默认 management.otlp.tracing.endpoint=http://localhost:4318/v1/traces
+# UI：http://localhost:16686
+services:
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    ports:
+      - "16686:16686"
+      - "4318:4318"
