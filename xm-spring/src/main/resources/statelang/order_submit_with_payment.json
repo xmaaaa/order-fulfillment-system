@@ -1,0 +1,105 @@
+{
+  "Name": "orderSubmitWithPayment",
+  "Comment": "Reserve inventory -> Create payment -> Mark order paid. Compensate on failure.",
+  "StartState": "ReserveInventory",
+  "Version": "0.0.1",
+  "States": {
+    "ReserveInventory": {
+      "Type": "ServiceTask",
+      "ServiceName": "orderSubmitSagaAction",
+      "ServiceMethod": "reserveInventory",
+      "CompensateState": "CompensateReserveInventory",
+      "Catch": [{"Exceptions": ["java.lang.Throwable"], "Next": "CompensationTrigger"}],
+      "Next": "ChoiceAfterReserve",
+      "Input": ["$.[orderId]"],
+      "Output": {
+        "reserveResult": "$.#root"
+      },
+      "Status": {
+        "#root == true": "SU",
+        "#root == false": "FA",
+        "$Exception{java.lang.Throwable}": "UN"
+      }
+    },
+    "ChoiceAfterReserve": {
+      "Type": "Choice",
+      "Choices": [{
+        "Expression": "[reserveResult] == true",
+        "Next": "CreatePayment"
+      }],
+      "Default": "Fail"
+    },
+    "CreatePayment": {
+      "Type": "ServiceTask",
+      "ServiceName": "orderSubmitSagaAction",
+      "ServiceMethod": "createPayment",
+      "CompensateState": "CompensateCreatePayment",
+      "Catch": [{"Exceptions": ["java.lang.Throwable"], "Next": "CompensationTrigger"}],
+      "Next": "ChoiceAfterPayment",
+      "Input": ["$.[orderId]"],
+      "Output": {
+        "paymentId": "$.#root"
+      },
+      "Status": {
+        "#root != null": "SU",
+        "#root == null": "FA",
+        "$Exception{java.lang.Throwable}": "UN"
+      }
+    },
+    "ChoiceAfterPayment": {
+      "Type": "Choice",
+      "Choices": [{
+        "Expression": "[paymentId] != null",
+        "Next": "MarkOrderPaid"
+      }],
+      "Default": "Fail"
+    },
+    "MarkOrderPaid": {
+      "Type": "ServiceTask",
+      "ServiceName": "orderSubmitSagaAction",
+      "ServiceMethod": "markOrderPaid",
+      "CompensateState": "CompensateMarkOrderPaid",
+      "Catch": [{"Exceptions": ["java.lang.Throwable"], "Next": "CompensationTrigger"}],
+      "Input": ["$.[orderId]", "$.[paymentId]"],
+      "Output": {
+        "markPaidResult": "$.#root"
+      },
+      "Status": {
+        "#root == true": "SU",
+        "#root == false": "FA",
+        "$Exception{java.lang.Throwable}": "UN"
+      },
+      "Next": "Succeed"
+    },
+    "CompensateReserveInventory": {
+      "Type": "ServiceTask",
+      "ServiceName": "orderSubmitSagaAction",
+      "ServiceMethod": "compensateReserveInventory",
+      "Input": ["$.[orderId]"]
+    },
+    "CompensateCreatePayment": {
+      "Type": "ServiceTask",
+      "ServiceName": "orderSubmitSagaAction",
+      "ServiceMethod": "compensateCreatePayment",
+      "Input": ["$.[paymentId]"]
+    },
+    "CompensateMarkOrderPaid": {
+      "Type": "ServiceTask",
+      "ServiceName": "orderSubmitSagaAction",
+      "ServiceMethod": "compensateMarkOrderPaid",
+      "Input": ["$.[orderId]"]
+    },
+    "CompensationTrigger": {
+      "Type": "CompensationTrigger",
+      "Next": "Fail"
+    },
+    "Succeed": {
+      "Type": "Succeed"
+    },
+    "Fail": {
+      "Type": "Fail",
+      "ErrorCode": "ORDER_SUBMIT_FAILED",
+      "Message": "Order submit with payment failed"
+    }
+  }
+}
