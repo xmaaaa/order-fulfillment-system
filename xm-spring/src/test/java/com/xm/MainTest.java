@@ -17,6 +17,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 })
 public class MainTest {
 
+    static {
+        System.setProperty("csp.sentinel.log.dir", "target/sentinel");
+    }
+
     @Autowired
     private TestService testService;
 
