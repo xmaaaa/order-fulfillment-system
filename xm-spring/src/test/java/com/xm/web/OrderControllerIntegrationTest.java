@@ -64,15 +64,44 @@ class OrderControllerIntegrationTest {
     }
 
     @Test
-    void invalidStateTransitionReturnsServerError() throws Exception {
+    void invalidStateTransitionReturnsConflict() throws Exception {
         String orderId = createDraft();
 
         mockMvc.perform(post("/order/{orderId}/ship", orderId))
-                .andExpect(status().isInternalServerError());
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code", is("ORDER_STATE_CONFLICT")))
+                .andExpect(jsonPath("$.path", is("/order/" + orderId + "/ship")));
 
         mockMvc.perform(get("/order/{orderId}", orderId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.state", is("DRAFT")));
+    }
+
+    @Test
+    void missingOrderReturnsNotFound() throws Exception {
+        mockMvc.perform(get("/order/{orderId}", "ORD-missing"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code", is("ORDER_NOT_FOUND")))
+                .andExpect(jsonPath("$.message", is("Order not found: ORD-missing")))
+                .andExpect(jsonPath("$.path", is("/order/ORD-missing")));
+    }
+
+    @Test
+    void invalidCreateDraftRequestReturnsBadRequest() throws Exception {
+        String invalidRequest = """
+                {
+                  "userId": "",
+                  "lines": []
+                }
+                """;
+
+        mockMvc.perform(post("/order/draft")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(invalidRequest))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code", is("BAD_REQUEST")))
+                .andExpect(jsonPath("$.message", is("userId and lines required")))
+                .andExpect(jsonPath("$.path", is("/order/draft")));
     }
 
     @Test
