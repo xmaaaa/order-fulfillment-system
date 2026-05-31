@@ -2,6 +2,7 @@ package com.xm.config;
 
 import com.xm.cache.RedissonLockStrategy;
 import com.xm.scenario.concurrent.lock.*;
+import com.xm.scenario.order.application.command.IdempotentOrderCommandService;
 import com.xm.scenario.concurrent.lock.delegate.DelegatingInventoryLockStrategy;
 import com.xm.scenario.concurrent.lock.delegate.DelegatingOrderLockStrategy;
 import com.xm.scenario.concurrent.lock.delegate.DelegatingUserLockStrategy;
@@ -13,6 +14,8 @@ import com.xm.scenario.order.application.command.OrderCommandServiceImpl;
 import com.xm.scenario.order.domain.model.OrderRepository;
 import com.xm.scenario.order.domain.service.OrderDomainService;
 import com.xm.scenario.order.infrastructure.repository.InMemoryOrderRepository;
+import com.xm.scenario.shared.idempotency.IdempotencyKeyStore;
+import com.xm.scenario.shared.idempotency.InMemoryIdempotencyKeyStore;
 import com.xm.scenario.transaction.localmessage.InMemoryLocalMessageTxSupport;
 import com.xm.scenario.transaction.localmessage.LocalMessageTxSupport;
 import org.redisson.api.RedissonClient;
@@ -48,6 +51,7 @@ public class OrderScenarioConfig {
     @Bean
     public OrderCommandService orderCommandService(OrderDomainService orderDomainService,
                                                    @Autowired(required = false) LockPolicy lockPolicy,
+                                                   IdempotencyKeyStore idempotencyKeyStore,
                                                    @Autowired(required = false) LocalMessageTxSupport localMessageTxSupport) {
         OrderCommandService base = new OrderCommandServiceImpl(orderDomainService);
         if (localMessageTxSupport != null) {
@@ -56,7 +60,12 @@ public class OrderScenarioConfig {
         if (lockPolicy != null) {
             base = new LockedOrderCommandService(base, lockPolicy);
         }
-        return base;
+        return new IdempotentOrderCommandService(base, idempotencyKeyStore, 10 * 60 * 1000L);
+    }
+
+    @Bean
+    public IdempotencyKeyStore idempotencyKeyStore() {
+        return new InMemoryIdempotencyKeyStore();
     }
 
     // ---------- 锁：学习用（订单/库存/用户 不同 lease：30s/10s/5s） ----------
