@@ -43,6 +43,11 @@ public class IdempotentOrderCommandService implements OrderCommandService {
         return createDraftWithIdempotency(null, userId, lines);
     }
 
+    @Override
+    public OrderId createDraft(String idempotencyKey, String userId, List<OrderLineDto> lines) {
+        return createDraftWithIdempotency(idempotencyKey, userId, lines);
+    }
+
     /**
      * 带幂等键的创建：同一 key 在 TTL 内返回同一 OrderId。
      */
