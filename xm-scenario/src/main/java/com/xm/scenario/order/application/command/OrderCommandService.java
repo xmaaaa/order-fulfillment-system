@@ -21,6 +21,13 @@ public interface OrderCommandService {
     OrderId createDraft(String userId, List<OrderLineDto> lines);
 
     /**
+     * 创建草稿订单，可由外层装饰器使用幂等键去重。
+     */
+    default OrderId createDraft(String idempotencyKey, String userId, List<OrderLineDto> lines) {
+        return createDraft(userId, lines);
+    }
+
+    /**
      * 提交订单（DRAFT -> SUBMITTED）
      */
     void submit(OrderId orderId);
