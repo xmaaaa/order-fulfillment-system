@@ -40,14 +40,15 @@ public class OrderController {
     private LockPolicy lockPolicy;
 
     @PostMapping("/draft")
-    public Map<String, String> createDraft(@RequestBody CreateDraftRequest req) {
+    public Map<String, String> createDraft(@RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+                                           @RequestBody CreateDraftRequest req) {
         if (orderCommandService == null) {
             throw new IllegalStateException("OrderCommandService not configured");
         }
         List<OrderCommandService.OrderLineDto> lines = req.lines().stream()
                 .map(l -> new OrderCommandService.OrderLineDto(l.skuId(), l.quantity(), l.price()))
                 .toList();
-        OrderId id = orderCommandService.createDraft(req.userId(), lines);
+        OrderId id = orderCommandService.createDraft(idempotencyKey, req.userId(), lines);
         return Map.of("orderId", id.getValue());
     }
 
