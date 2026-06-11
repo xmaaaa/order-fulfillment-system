@@ -11,6 +11,23 @@ spring:
     #项目名称必填，在注册中心唯一
     #最好和之前域名规范、kubernetes service名等保持一致（会作为调用）
     name: xm-service
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      retries: 3
+      properties:
+        enable.idempotence: "true"
+        max.in.flight.requests.per.connection: "5"
+    consumer:
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      enable-auto-commit: false
+    listener:
+      ack-mode: record
   datasource:
     url: jdbc:mysql://localhost:3306/xmtest?useSSL=false&serverTimezone=UTC&characterEncoding=utf8
     username: root
@@ -55,6 +72,13 @@ xm:
       enabled: false
       scan-interval-ms: 60000   # 扫描间隔 ms
       payment-timeout: 30m      # 待支付最长等待时间（Duration）
+    # Kafka：true 时 Outbox Relay 向 Kafka 发布事件，OrderEventConsumer 模拟下游消费
+    kafka:
+      enabled: false
+      retry:
+        attempts: 3          # 总尝试次数（含首次），失败后路由到 DLT
+        delay-ms: 1000       # 首次重试延迟（ms）
+        multiplier: 2.0      # 退避指数：1s → 2s → DLT
     # Outbox：扫本地消息表 → 幂等消费（日志模拟下游），需 transaction=memory|jdbc
     outbox-relay:
       enabled: true
@@ -82,6 +106,8 @@ management:
       application: ${spring.application.name}
   health:
     db:
+      enabled: false
+    kafka:
       enabled: false
 
 
