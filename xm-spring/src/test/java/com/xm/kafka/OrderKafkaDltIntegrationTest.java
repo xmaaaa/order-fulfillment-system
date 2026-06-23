@@ -56,7 +56,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
                 "xm.scenario.kafka.retry.multiplier=1.0"
         })
 @AutoConfigureMockMvc
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 class OrderKafkaDltIntegrationTest {
 
     static {
