@@ -46,7 +46,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
                 "xm.scenario.outbox-relay.interval-ms=500"
         })
 @AutoConfigureMockMvc
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 class OrderKafkaIntegrationTest {
 
     static {
