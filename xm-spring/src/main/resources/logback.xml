@@ -1,27 +1,82 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
 
-    <!-- 控制台日志输出 -->
-    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-        <!-- 日志输出格式 -->
-        <encoder>
-            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+    <!--
+      JSON 结构化日志 — ELK / Loki 直接摄取
+      每条日志包含：@timestamp, level, logger, thread, traceId, spanId, requestId（MDC），message, stack_trace
+
+      本地开发如需可读格式，启动时加 -DLOG_FORMAT=text
+    -->
+
+    <!-- JSON 格式（默认，容器/ELK 环境） -->
+    <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <fieldNames>
+                <timestamp>@timestamp</timestamp>
+                <level>level</level>
+                <thread>thread</thread>
+                <logger>logger</logger>
+                <message>message</message>
+                <stackTrace>stack_trace</stackTrace>
+            </fieldNames>
+            <shortenedLoggerNameLength>36</shortenedLoggerNameLength>
+            <!-- MDC 字段自动包含：traceId、spanId（Micrometer Tracing 注入）、requestId（MdcLoggingFilter 注入） -->
+            <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+                <maxDepthPerCause>20</maxDepthPerCause>
+                <rootCauseFirst>true</rootCauseFirst>
+            </throwableConverter>
         </encoder>
     </appender>
 
-    <!-- 文件日志输出，保存到 logs/app.log -->
-    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+    <!-- 可读格式（本地开发：-DLOG_FORMAT=text） -->
+    <appender name="TEXT_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %-5level [%X{traceId:--}/%X{spanId:--}] [%X{requestId:--}] %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- 文件日志（始终 JSON，供 Filebeat 采集） -->
+    <appender name="JSON_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>logs/app.log</file>
-        <append>true</append>
-        <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/app.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>7</maxHistory>
+        </rollingPolicy>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <fieldNames>
+                <timestamp>@timestamp</timestamp>
+                <level>level</level>
+                <thread>thread</thread>
+                <logger>logger</logger>
+                <message>message</message>
+                <stackTrace>stack_trace</stackTrace>
+            </fieldNames>
+            <shortenedLoggerNameLength>36</shortenedLoggerNameLength>
         </encoder>
     </appender>
 
-    <!-- 根日志级别，绑定两个appender -->
     <root level="INFO">
-        <appender-ref ref="CONSOLE" />
-        <appender-ref ref="FILE" />
+        <appender-ref ref="JSON_FILE"/>
     </root>
+
+    <!-- LOG_FORMAT=text → 可读控制台；否则 → JSON 控制台 -->
+    <if condition='property("LOG_FORMAT").equals("text")'>
+        <then>
+            <root level="INFO">
+                <appender-ref ref="TEXT_CONSOLE"/>
+            </root>
+        </then>
+        <else>
+            <root level="INFO">
+                <appender-ref ref="JSON_CONSOLE"/>
+            </root>
+        </else>
+    </if>
+
+    <!-- 降低噪音 -->
+    <logger name="org.apache.kafka" level="WARN"/>
+    <logger name="org.testcontainers" level="WARN"/>
+    <logger name="com.alibaba.nacos" level="WARN"/>
+    <logger name="io.seata" level="WARN"/>
 
 </configuration>
