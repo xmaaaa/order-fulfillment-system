@@ -84,16 +84,18 @@ xm:
       enabled: true
       interval-ms: 5000
 
-# OpenTelemetry：OTLP HTTP 导出（本地见 docker-compose.observability.yml）
-# 不需要后端时：设 management.tracing.export.enabled=false 或 unset OTEL_EXPORTER_OTLP_ENDPOINT 并关闭导出
+# OpenTelemetry 链路追踪
+# 本地开发：docker compose -f docker-compose.observability.yml up -d 启动 Jaeger
+# 完整栈：docker compose up -d（Jaeger 内置）
+# traceId / spanId 自动注入 MDC，JSON 日志中可见
 management:
   tracing:
-    enabled: false
+    enabled: ${MANAGEMENT_TRACING_ENABLED:false}   # 本地默认关闭，容器通过环境变量开启
     sampling:
       probability: 1.0
   otlp:
     tracing:
-      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318/v1/traces}
+      endpoint: ${MANAGEMENT_OTLP_TRACING_ENDPOINT:http://localhost:4318/v1/traces}
   endpoints:
     web:
       exposure:
