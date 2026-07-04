@@ -1,10 +1,50 @@
-# 可选：本地 OpenTelemetry 后端（OTLP HTTP → Jaeger UI）
+# 可观测性三件套（本地开发）
+#
 # 启动：docker compose -f docker-compose.observability.yml up -d
-# 应用默认 management.otlp.tracing.endpoint=http://localhost:4318/v1/traces
-# UI：http://localhost:16686
+# 前提：应用已在本地运行（mvn spring-boot:run 或 java -jar）
+#
+# 端口一览：
+#   Jaeger UI      → http://localhost:16686
+#   Prometheus     → http://localhost:9090
+#   Grafana        → http://localhost:3000  (admin / admin)
+
 services:
+
+  # ── Traces ────────────────────────────────────────────────────────────────
   jaeger:
     image: jaegertracing/all-in-one:1.57
+    container_name: jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
     ports:
-      - "16686:16686"
-      - "4318:4318"
+      - "16686:16686"   # Jaeger UI
+      - "4318:4318"     # OTLP HTTP（应用 → Jaeger）
+    restart: unless-stopped
+
+  # ── Metrics ───────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # 容器内访问宿主机
+    restart: unless-stopped
+
+  # ── Dashboard ─────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    restart: unless-stopped
