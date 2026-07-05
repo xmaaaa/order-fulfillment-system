@@ -26,6 +26,15 @@ services:
       retries: 5
       start_period: 15s
 
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    container_name: jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"
+      - "4318:4318"
+
   app:
     build: .
     ports:
@@ -41,6 +50,10 @@ services:
       - XM_SCENARIO_SAGA=learning
       - XM_SCENARIO_KAFKA_ENABLED=true
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - MANAGEMENT_TRACING_ENABLED=true
+      - MANAGEMENT_TRACING_SAMPLING_PROBABILITY=1.0
+      - MANAGEMENT_OTLP_TRACING_ENDPOINT=http://jaeger:4318/v1/traces
+      - LOG_FORMAT=json
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8888/"]
       interval: 10s
