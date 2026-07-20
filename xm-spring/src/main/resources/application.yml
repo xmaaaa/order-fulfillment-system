@@ -12,7 +12,8 @@ spring:
     #最好和之前域名规范、kubernetes service名等保持一致（会作为调用）
     name: xm-service
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    # 本地开发用 29092（宿主机 Listener），容器化部署通过环境变量覆盖为 kafka:9092
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
