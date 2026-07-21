@@ -1,23 +1,57 @@
-# Order Fulfillment Reference Architecture
-# Runs in memory mode by default (no DB/Redis required)
+# ══════════════════════════════════════════════════════════════════════════════
+# Order Fulfillment — 统一基础设施配置
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# 两种使用模式：
+#
+#   【本地开发】应用在宿主机跑，基础设施全在 Docker
+#     docker compose up -d
+#     cd xm-spring && MANAGEMENT_TRACING_ENABLED=true mvn spring-boot:run
+#
+#   【完整容器化】应用也跑在 Docker 里（CI / 演示 / 部署）
+#     docker compose --profile app up -d
+#
+# 端口总览：
+#   应用        → http://localhost:8888
+#   Jaeger UI   → http://localhost:16686   链路追踪
+#   Prometheus  → http://localhost:9090    指标 + 告警
+#   Grafana     → http://localhost:3000    可视化 Dashboard (admin / admin)
+#   Kibana      → http://localhost:5601    日志搜索
+#   ES REST API → http://localhost:9200    可直接 curl 查索引
+#   Kafka       → localhost:9092           消息队列
+# ══════════════════════════════════════════════════════════════════════════════
 
 services:
+
+  # ── Message Queue：Kafka ──────────────────────────────────────────────────
+  # KRaft 模式（无 Zookeeper），单节点，适合本地开发
+  # 注意：KAFKA_ADVERTISED_LISTENERS 用的是 Docker 内部名 kafka:9092
+  #       容器间通信正常；宿主机应用连 Kafka 需配置 KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+  #       （Docker 把 9092 暴露到宿主机，但 Kafka 回复的 broker 地址是 kafka:9092 宿主机无法解析）
+  #       实际影响：本地开发启用 Kafka（xm.scenario.kafka.enabled=true）时功能受限，
+  #       建议用 --profile app 全容器化模式测试 Kafka 功能
   kafka:
     image: apache/kafka:3.7.0
+    container_name: kafka
     ports:
-      - "9092:9092"
+      - "9092:9092"     # 容器间通信（--profile app 里的 app 容器用）
+      - "29092:29092"   # 宿主机访问（本地 mvn spring-boot:run 用这个端口）
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      # 两套 Listener：
+      #   PLAINTEXT      → 容器内部通信，advertise kafka:9092（Docker DNS 可解析）
+      #   PLAINTEXT_HOST → 宿主机通信，advertise localhost:29092（宿主机可解析）
+      #   CONTROLLER     → KRaft 内部选举，不对外暴露
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"  # Topic 由应用代码显式创建，避免拼写错误产生垃圾 Topic
       CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
     healthcheck:
       test: ["CMD", "/opt/kafka/bin/kafka-topics.sh", "--bootstrap-server", "localhost:9092", "--list"]
@@ -25,23 +59,124 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
+    restart: unless-stopped
 
+  # ── Traces：Jaeger ────────────────────────────────────────────────────────
+  # 接收应用通过 OTLP 协议推送的 Span，提供链路搜索 UI
+  # 数据流：应用 SDK → OTLP HTTP (4318) → Jaeger 存储 → UI (16686)
+  # all-in-one 镜像把 collector + query + UI 打包在一起，适合本地
   jaeger:
     image: jaegertracing/all-in-one:1.57
     container_name: jaeger
     environment:
-      COLLECTOR_OTLP_ENABLED: "true"
+      COLLECTOR_OTLP_ENABLED: "true"   # 开启 OTLP 端口，默认只有 Jaeger 私有协议
     ports:
-      - "16686:16686"
-      - "4318:4318"
+      - "16686:16686"   # Jaeger UI
+      - "4318:4318"     # OTLP HTTP — 应用把 Span 推到这里
+    restart: unless-stopped
 
+  # ── Metrics：Prometheus ───────────────────────────────────────────────────
+  # 每 10s 拉取应用 /actuator/prometheus，存入本地时序数据库，评估告警规则
+  # host.docker.internal 让容器内的 Prometheus 能访问宿主机的 8888 端口
+  # 无论应用跑在宿主机还是 Docker（8888 端口暴露），这个地址都能访问到
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: prometheus
+    ports:
+      - "9090:9090"   # UI + API，写 PromQL 和查看告警状态
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus-rules.yml:/etc/prometheus/rules/order-fulfillment.yml:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # Linux 需要；Mac/Win 上 Docker Desktop 自动处理
+    restart: unless-stopped
+
+  # ── Metrics Dashboard：Grafana ────────────────────────────────────────────
+  # 从 Prometheus 查询数据渲染图表
+  # provisioning 目录下的配置启动时自动加载（数据源 + Dashboard），无需手动配置
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: grafana
+    ports:
+      - "3000:3000"   # UI，默认账号密码 admin / admin
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  # ── Logs：Elasticsearch ───────────────────────────────────────────────────
+  # 存储结构化日志，每条 JSON 日志行 = 一个 document
+  # 索引按天分：xm-service-2026.07.18、xm-service-2026.07.19 ...
+  elasticsearch:
+    image: elasticsearch:8.13.4
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node      # 单节点，跳过集群选举
+      - xpack.security.enabled=false    # 关闭认证，本地无需密码
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m  # 限制堆内存，避免本地 OOM
+    ports:
+      - "9200:9200"   # REST API，curl http://localhost:9200/_cat/indices 可查看所有索引
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\\|yellow\"'"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # ── Logs：Kibana ──────────────────────────────────────────────────────────
+  # Elasticsearch 的可视化 UI，用于搜索和过滤日志
+  # 首次使用需创建 Data View：Management → Data Views → xm-service-* / @timestamp
+  kibana:
+    image: kibana:8.13.4
+    container_name: kibana
+    ports:
+      - "5601:5601"
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    depends_on:
+      elasticsearch:
+        condition: service_healthy   # 等 ES 健康再启，否则 Kibana 启动时找不到 ES 会报错
+    restart: unless-stopped
+
+  # ── Logs：Filebeat ────────────────────────────────────────────────────────
+  # 监听日志文件变化，把新行发给 Elasticsearch
+  # user: root 是必须的，否则无权读取挂载进来的宿主机文件
+  # 挂载两个目录是因为不同启动方式日志路径不同：
+  #   ./logs           → 从项目根目录启动时（mvn -pl xm-spring spring-boot:run）
+  #   ./xm-spring/logs → 从 xm-spring 目录启动时（IntelliJ 默认工作目录）
+  filebeat:
+    image: elastic/filebeat:8.13.4
+    container_name: filebeat
+    user: root
+    volumes:
+      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - ./logs:/var/log/app/root:ro
+      - ./xm-spring/logs:/var/log/app/spring:ro
+    command: filebeat -e --strict.perms=false
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Application（可选，--profile app）────────────────────────────────────
+  # 默认不启动，本地开发直接 mvn spring-boot:run 更方便（日常开发，热重载、调试）
+  # 全容器化场景使用：docker compose --profile app up -d (演示 / CI / 验收测试，不能直接调试)
   app:
+    profiles: [app]
     build: .
+    container_name: app
     ports:
       - "8888:8888"
     depends_on:
       kafka:
         condition: service_healthy
+      jaeger:
+        condition: service_started
     environment:
       - SERVER_PORT=8888
       - XM_SCENARIO_LOCK=memory
@@ -49,14 +184,15 @@ services:
       - XM_SCENARIO_TCC=learning
       - XM_SCENARIO_SAGA=learning
       - XM_SCENARIO_KAFKA_ENABLED=true
-      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092          # 容器内用 Docker 服务名
       - MANAGEMENT_TRACING_ENABLED=true
       - MANAGEMENT_TRACING_SAMPLING_PROBABILITY=1.0
-      - MANAGEMENT_OTLP_TRACING_ENDPOINT=http://jaeger:4318/v1/traces
+      - MANAGEMENT_OTLP_TRACING_ENDPOINT=http://jaeger:4318/v1/traces   # 容器内用服务名
       - LOG_FORMAT=json
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8888/"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8888/actuator/health"]
       interval: 10s
       timeout: 5s
       retries: 3
       start_period: 30s
+    restart: unless-stopped
