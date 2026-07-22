@@ -14,11 +14,107 @@ A reference implementation of an **order fulfillment system** demonstrating ente
 
 ## Observability
 
-| What | Where |
-|------|--------|
-| Health / metrics / Prometheus | `/actuator/health`, `/actuator/metrics`, `/actuator/prometheus` |
-| Request trace id | `TraceIdFilter` — propagates `X-Trace-Id`, sets MDC key `traceId` for logs |
-| App metadata | `/actuator/info` |
+三件套：**Metrics（Prometheus + Grafana）+ Tracing（Jaeger）+ Logs（ELK）**
+
+```
+本地 JVM (:8888)
+  ├─[OTLP push]──▶ Jaeger      → http://localhost:16686  链路追踪
+  ├─[被拉取]◀──── Prometheus   → http://localhost:9090   指标 + 告警
+  │               └─▶ Grafana  → http://localhost:3000   可视化 Dashboard
+  └─[写文件]──▶ logs/app.log
+                 └─▶ Filebeat
+                       └─▶ Elasticsearch → Kibana → http://localhost:5601  日志搜索
+```
+
+### 快速启动
+
+```bash
+# 1. 启动所有基础设施（Kafka / Jaeger / Prometheus / Grafana / ES / Kibana / Filebeat）
+docker compose up -d
+
+# 2. 启动应用（MANAGEMENT_TRACING_ENABLED=true 才会发 Span 到 Jaeger）
+cd xm-spring && MANAGEMENT_TRACING_ENABLED=true mvn spring-boot:run
+
+# 3. 产生数据
+curl -X POST "http://localhost:8888/demo/orders/submit"
+# 返回 {"orderId":"A1B2C3D4","status":"SUBMITTED"}
+curl -X POST "http://localhost:8888/demo/orders/A1B2C3D4/pay"
+curl -X POST "http://localhost:8888/demo/orders/submit?fail=true"   # 模拟失败
+```
+
+### 各工具使用说明
+
+| 工具 | 地址 | 看什么 |
+|------|------|--------|
+| **Prometheus** | `localhost:9090` | Status → Targets 看采集状态；Graph 写 PromQL；Alerts 看 SLO 规则 |
+| **Grafana** | `localhost:3000` (admin/admin) | Dashboards → Order Fulfillment，第三行是订单业务指标 |
+| **Jaeger** | `localhost:16686` | 服务选 `xm-service`，搜 Traces，点进去看 Span 瀑布图 |
+| **Kibana** | `localhost:5601` | 首次需建 Data View（见下方），然后 Discover 搜日志 |
+
+### Kibana 首次配置（只需做一次）
+
+```
+Management → Data Views → Create data view
+  Name:              xm-service
+  Index pattern:     xm-service-*
+  Timestamp field:   @timestamp
+→ Save
+```
+
+之后在 Discover 页面用 KQL 搜索：
+
+```
+# 所有订单提交日志
+message: "Order submitted"
+
+# 某笔订单（直接用 curl 返回的 orderId）
+message: "A1B2C3D4"
+
+# 所有错误
+level: "ERROR"
+
+# 某个接口的所有请求
+path: "/demo/orders/submit"
+```
+
+### 关键日志字段（Kibana 可过滤）
+
+| 字段 | 来源 | 说明 |
+|------|------|------|
+| `@timestamp` | Logback | 日志时间 |
+| `level` | Logback | INFO / WARN / ERROR |
+| `message` | Logback | 日志正文 |
+| `logger` | Logback | 打日志的类名 |
+| `traceId` | Micrometer Tracing 自动注入 MDC | 与 Jaeger 的 Trace ID 相同，可跨工具关联 |
+| `spanId` | Micrometer Tracing 自动注入 MDC | 当前 Span |
+| `requestId` | `MdcLoggingFilter` | 每个 HTTP 请求的唯一 ID，也出现在响应头 `X-Request-Id` |
+| `method` / `path` | `MdcLoggingFilter` | HTTP 方法和路径 |
+
+### 告警规则（prometheus-rules.yml）
+
+| 告警名 | 条件 | 级别 |
+|--------|------|------|
+| `HighHttpErrorRate` | HTTP 5xx 错误率 > 0.1% 持续 2 分钟 | critical |
+| `HighP99Latency` | HTTP P99 延迟 > 200ms 持续 2 分钟 | warning |
+| `OrderProcessingSlowP99` | 订单处理 P99 > 1s 持续 2 分钟 | warning |
+| `HighOrderSubmitFailureRate` | 订单提交失败率 > 5% 持续 2 分钟 | critical |
+
+触发告警测试：
+
+```bash
+# 连续发失败请求，触发 HighOrderSubmitFailureRate
+for i in {1..30}; do curl -s -X POST "http://localhost:8888/demo/orders/submit?fail=true" > /dev/null; done
+# 在 http://localhost:9090/alerts 观察 PENDING → FIRING 变化
+```
+
+### 可观测性接入原理
+
+| 组件 | 接入方式 | 你做了什么 |
+|------|---------|-----------|
+| Metrics | Spring Boot Actuator 自动暴露 `/actuator/prometheus`，Prometheus 主动拉取 | pom.xml 加 `micrometer-registry-prometheus` |
+| Tracing | OTel SDK 自动拦截 HTTP 请求，push Span 到 Jaeger | pom.xml 加 `micrometer-tracing-bridge-otel`；`application.yml` 配置 endpoint |
+| Logs | Logback 写 JSON 文件，Filebeat tail 文件后转发 ES | `logback.xml` 配 `LogstashEncoder`；`filebeat.yml` 配采集规则 |
+| traceId 注入日志 | Micrometer Tracing 自动把 `traceId`/`spanId` 写入 MDC，Logstash Encoder 把 MDC 所有字段写进 JSON | 无需额外代码 |
 
 ---
 
@@ -99,7 +195,11 @@ Default port: `8888`. Uses in-memory storage by default (no DB required).
 ### Run with Docker
 
 ```bash
+# 仅基础设施（本地开发推荐）
 docker compose up -d
+
+# 完整容器化（应用也跑在 Docker 里）
+docker compose --profile app up -d
 ```
 
 App: http://localhost:8888
