@@ -1,0 +1,84 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# Prometheus 告警规则 — SLO 定义
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# 告警生命周期：
+#   规则触发 → PENDING（等待 for 时长持续满足）→ FIRING（真正告警）
+#   PENDING 设计是为了避免毛刺误报，短暂尖峰不会触发告警
+#
+# 在 Prometheus UI 查看：http://localhost:9090/alerts
+#
+# PromQL 常用函数说明：
+#   rate(metric[5m])              — 计算过去 5 分钟的每秒平均变化率（用于 Counter 类型）
+#   histogram_quantile(0.99, ...) — 从 Histogram 的 bucket 数据计算 P99 分位数
+#   sum(...) by (le)              — 按 le（less-or-equal，bucket 边界）标签聚合，histogram_quantile 必须这样用
+# ══════════════════════════════════════════════════════════════════════════════
+
+groups:
+  - name: order-fulfillment-slo
+    interval: 30s   # 这个 group 内的规则每 30s 评估一次（覆盖全局 15s，减少计算频率）
+    rules:
+
+      # ── SLO 1: HTTP 5xx 错误率 < 0.1% ──────────────────────────────────────
+      # 指标来源：Spring Boot Actuator 自动记录，metric 名 = http_server_requests_seconds_count
+      # status 标签由 Spring MVC 自动打，值为 HTTP 状态码（"200"、"404"、"500"等）
+      # 表达式含义：5xx 请求数 / 总请求数 > 0.1%
+      - alert: HighHttpErrorRate
+        expr: |
+          sum(rate(http_server_requests_seconds_count{job="order-fulfillment", status=~"5.."}[5m]))
+          /
+          sum(rate(http_server_requests_seconds_count{job="order-fulfillment"}[5m])) > 0.001
+        for: 2m        # 持续 2 分钟都满足才触发，避免单次 500 误报
+        labels:
+          severity: critical
+        annotations:
+          summary: "HTTP 5xx 错误率超 SLO（> 0.1%）"
+          description: "当前错误率 {{ $value | humanizePercentage }}"
+
+      # ── SLO 2: HTTP P99 延迟 < 200ms ────────────────────────────────────────
+      # 指标来源：Spring Boot Actuator 自动记录，metric 名 = http_server_requests_seconds_bucket
+      # histogram_quantile 需要完整的 bucket 数据，所以 sum by (le) 是固定写法
+      # 单位：Prometheus 里时间单位是秒，> 0.200 即 200ms
+      - alert: HighP99Latency
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(http_server_requests_seconds_bucket{job="order-fulfillment"}[5m])) by (le)
+          ) > 0.200
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "HTTP P99 延迟超 SLO（> 200ms）"
+          description: "当前 P99 = {{ $value | humanizeDuration }}"
+
+      # ── 业务告警：订单处理 P99 > 1s ──────────────────────────────────────────
+      # 指标来源：OrderMetrics.java 手动注册的 Timer（orders.processing.duration）
+      # 记录从订单提交到支付/取消的完整时长
+      # Micrometer Timer → Prometheus 生成 _bucket / _count / _sum / _max 四组指标
+      - alert: OrderProcessingSlowP99
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(orders_processing_duration_seconds_bucket[5m])) by (le)
+          ) > 1.0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "订单处理 P99 超阈值（> 1s）"
+          description: "当前 P99 = {{ $value | humanizeDuration }}"
+
+      # ── 业务告警：订单提交失败率 > 5% ────────────────────────────────────────
+      # 指标来源：OrderMetrics.java 手动注册的 Counter（orders.submitted，带 result 标签）
+      # result="failure" 时 orderSubmittedFailure() 被调用
+      # Micrometer Counter → Prometheus 生成 orders_submitted_total{result="failure|success"}
+      - alert: HighOrderSubmitFailureRate
+        expr: |
+          rate(orders_submitted_total{result="failure"}[5m])
+          /
+          rate(orders_submitted_total[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "订单提交失败率 > 5%"
+          description: "当前失败率 {{ $value | humanizePercentage }}"
