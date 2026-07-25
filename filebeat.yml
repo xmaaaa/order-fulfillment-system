@@ -1,0 +1,50 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# Filebeat 配置 — 日志采集代理
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# 职责：监听应用写出的 JSON 日志文件，把每一行解析后发给 Elasticsearch
+#
+# 数据流：
+#   应用 → logback.xml 写 JSON → logs/app.log
+#                                     ↓ Filebeat tail
+#                               解析每行 JSON
+#                                     ↓
+#                            Elasticsearch（按天存索引）
+#                                     ↓
+#                               Kibana 搜索
+#
+# 这个文件被 docker-compose.observability.yml 挂载到容器内
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ── 输入：监听哪些文件 ────────────────────────────────────────────────────────
+filebeat.inputs:
+  - type: filestream       # filestream 是 8.x 推荐的输入类型，比旧的 log 类型更可靠
+                           # 内部维护文件 inode + offset，重启后从断点继续，不重复发送
+    id: app-logs           # 这个 input 的唯一标识，用于持久化读取进度（换了 id 会重新从头读）
+    paths:
+      - /var/log/app/**/*.log   # 监听容器内的路径（由 docker-compose volumes 挂载自宿主机）
+                                # ** 匹配任意子目录，同时覆盖 root/ 和 spring/ 两个挂载点
+
+    parsers:
+      - ndjson:                    # NDJSON = Newline Delimited JSON，每行是一个独立 JSON 对象
+          target: ""               # "" 表示把 JSON 字段提升到文档顶层，而不是嵌套在某个 key 下
+                                   # 例如 {"level":"INFO","message":"..."} → 直接成为 ES document 的字段
+          overwrite_keys: true     # JSON 里的字段可以覆盖 Filebeat 自动添加的同名字段
+                                   # 例如 JSON 里有 "host" 字段，会覆盖 Filebeat 采集的 host 信息
+          add_error_key: true      # 如果某行 JSON 解析失败，添加 error.message 字段而不是丢弃
+
+# ── 输出：发给哪里 ────────────────────────────────────────────────────────────
+output.elasticsearch:
+  hosts: ["http://elasticsearch:9200"]   # ES 地址，用 Docker 服务名（容器间网络互通）
+  index: "xm-service-%{+yyyy.MM.dd}"     # 索引名按天分，例如 xm-service-2026.07.18
+                                          # 好处：可以按天清理旧数据，查询时范围更小
+
+# ── 索引模板：告诉 ES 如何映射字段类型 ───────────────────────────────────────
+setup.ilm.enabled: false          # 关闭索引生命周期管理（ILM），使用手动按天索引即可
+                                   # ILM 适合生产环境自动滚动，本地不需要这个复杂度
+setup.template.name: "xm-service"         # 模板名称
+setup.template.pattern: "xm-service-*"   # 这个模板应用于所有 xm-service- 开头的索引
+
+# ── Filebeat 自身日志 ─────────────────────────────────────────────────────────
+logging.level: info          # Filebeat 自身的日志级别，info 足够排查问题
+logging.to_stderr: true      # 输出到 stderr，docker compose logs filebeat 可以看到
