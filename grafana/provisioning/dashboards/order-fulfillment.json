@@ -86,6 +86,75 @@
           "legendFormat": "{{status}} {{uri}}"
         }
       ]
+    },
+    {
+      "id": 5,
+      "title": "Order Submission Rate (success / failure)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 16, "w": 8, "h": 8 },
+      "datasource": { "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "lineWidth": 2 }
+        }
+      },
+      "targets": [
+        {
+          "expr": "rate(orders_submitted_total{result=\"success\"}[1m])",
+          "legendFormat": "success"
+        },
+        {
+          "expr": "rate(orders_submitted_total{result=\"failure\"}[1m])",
+          "legendFormat": "failure"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Orders Paid / Cancelled Rate",
+      "type": "timeseries",
+      "gridPos": { "x": 8, "y": 16, "w": 8, "h": 8 },
+      "datasource": { "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "lineWidth": 2 }
+        }
+      },
+      "targets": [
+        {
+          "expr": "rate(orders_paid_total[1m])",
+          "legendFormat": "paid"
+        },
+        {
+          "expr": "rate(orders_cancelled_total[1m])",
+          "legendFormat": "cancelled"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Order Processing Duration P99 / P50 (ms)",
+      "type": "timeseries",
+      "gridPos": { "x": 16, "y": 16, "w": 8, "h": 8 },
+      "datasource": { "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": { "lineWidth": 2 }
+        }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(orders_processing_duration_seconds_bucket[2m])) by (le)) * 1000",
+          "legendFormat": "P99"
+        },
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(orders_processing_duration_seconds_bucket[2m])) by (le)) * 1000",
+          "legendFormat": "P50"
+        }
+      ]
     }
   ]
 }
