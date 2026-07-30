@@ -1,0 +1,18 @@
+# kind 集群配置：1 个控制面 + 2 个工作节点
+# kind = Kubernetes IN Docker，每个"节点"其实是一个 Docker 容器，跑着完整的 kubelet。
+# 这不是模拟，是货真价实的 K8s，只是节点从"物理机/虚拟机"换成了"容器"。
+#
+# 用法：
+#   kind create cluster --name ofs --config deploy/kind-cluster.yaml
+apiVersion: kind.x-k8s.io/v1alpha4
+kind: Cluster
+name: ofs                       # 集群名，kubeconfig 里会叫 kind-ofs
+nodes:
+  - role: control-plane         # 控制面：跑 apiserver / scheduler / etcd 等"大脑"
+    # 把宿主机端口映射进集群，方便本地用浏览器访问 NodePort 服务
+    extraPortMappings:
+      - containerPort: 30080     # 集群内 NodePort
+        hostPort: 30080          # 宿主机端口 → 本机 localhost:30080 就能访问
+        protocol: TCP
+  - role: worker                # 工作节点 1：真正跑业务 Pod 的地方
+  - role: worker                # 工作节点 2：用来演示 Pod 被调度到不同节点
