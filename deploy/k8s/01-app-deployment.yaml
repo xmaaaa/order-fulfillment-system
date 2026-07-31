@@ -1,0 +1,81 @@
+# ============================================================================
+# Deployment：K8s 最核心的对象。它的含义是——
+# "我要一直保证有 N 个一模一样的应用副本(Pod)在跑，挂了自动拉起来"
+# 你只声明"我想要的样子"，K8s 的 controller 负责不断把现实拨到这个样子。
+# ============================================================================
+apiVersion: apps/v1          # Deployment 属于 apps/v1 这个 API 组
+kind: Deployment             # 对象类型
+metadata:
+  name: ofs-app              # 这个 Deployment 的名字
+  labels:
+    app: ofs-app             # 给它贴个标签，方便筛选
+
+spec:
+  replicas: 2                # 期望副本数：跑 2 个一模一样的 Pod（体会"多副本"）
+
+  # ── 滚动更新策略：发新版本时新旧副本如何交替，保证零停机 ──────────────────
+  # maxSurge=1 + maxUnavailable=0 = "先起新的，就绪后再杀旧的"，严格零停机。
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1            # 更新时最多可临时多出 1 个 Pod
+      maxUnavailable: 0      # 更新时不允许任何副本不可用（最稳，滚动稍慢）
+
+  # selector：Deployment 靠"标签匹配"来认领它管哪些 Pod。
+  # 必须和下面 template.metadata.labels 对上，否则 K8s 报错。
+  selector:
+    matchLabels:
+      app: ofs-app
+
+  # template：Pod 的"模具"。replicas=2 就是按这个模具复制 2 份。
+  template:
+    metadata:
+      labels:
+        app: ofs-app         # Pod 贴的标签，被上面的 selector 认领；也被 Service 用来找 Pod
+    spec:
+      containers:
+        - name: ofs-app
+          image: ofs-app:v1  # 用我们 build + kind load 进来的镜像
+          # ⚠️ 关键：默认策略会去"远程仓库"拉镜像，但我们的镜像只在本地 load 进来。
+          # IfNotPresent = 节点上已有就直接用，不去远程拉。忘了这行会 ImagePullBackOff。
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8888   # 应用监听的端口（application.yml 里 server.port: 8888）
+
+          # ── 资源配额：申请(requests) 与 上限(limits) ──────────────────────
+          # requests：调度器据此决定把 Pod 放到哪个节点（保证节点有这么多资源）。
+          #           也是 HPA 计算 CPU 使用率的分母（用量 / requests）。
+          # limits ：硬上限。超过内存上限 → 容器被 OOMKilled；超过 CPU 上限 → 被限流。
+          resources:
+            requests:
+              cpu: "250m"          # 250m = 0.25 核
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"         # 最多用 1 核
+              memory: "1Gi"
+
+          # ── 启动探针：给慢启动的 Spring 足够时间 ──────────────────────────
+          # 启动期间只跑它；它通过之前，liveness/readiness 都不启动。
+          # failureThreshold * periodSeconds = 最长允许启动时间 = 30*5 = 150s
+          startupProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8888
+            periodSeconds: 5         # 每 5s 探一次
+            failureThreshold: 30      # 连续失败 30 次才判定启动失败
+
+          # ── 存活探针：卡死就重启 ─────────────────────────────────────────
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8888
+            periodSeconds: 10         # 每 10s 探一次
+            failureThreshold: 3        # 连续失败 3 次 → 重启容器
+
+          # ── 就绪探针：没就绪就不给流量（但不重启）─────────────────────────
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8888
+            periodSeconds: 10
+            failureThreshold: 3        # 连续失败 3 次 → 从 Service 摘除
