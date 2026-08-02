@@ -1,0 +1,21 @@
+# ============================================================================
+# Service：给一组 Pod 提供一个"固定的访问入口 + 负载均衡"。
+# 为什么需要它？Pod 是"一次性"的——重启/扩缩容后 IP 会变。
+# 如果别人直接连 Pod 的 IP，Pod 一换就连不上了。
+# Service 提供一个稳定的名字(ofs-app)和虚拟 IP，自动把流量分发到背后所有匹配的 Pod。
+# 集群内其它 Pod 用 DNS 名 "ofs-app" 就能访问，不用关心 Pod 在哪、IP 是多少。
+# ============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: ofs-app              # Service 名 = 集群内的 DNS 名。别的 Pod 访问 http://ofs-app:8888
+spec:
+  # selector：Service 靠标签找到要转发流量的 Pod。
+  # 必须匹配上面 Deployment 里 Pod 的 labels(app: ofs-app)。
+  selector:
+    app: ofs-app
+  ports:
+    - port: 8888             # Service 自己暴露的端口
+      targetPort: 8888       # 转发到 Pod 容器的端口
+  # type 不写默认是 ClusterIP：只在集群内部可访问。
+  # （稍后演示对外访问时，我们会另外用 NodePort/port-forward）
