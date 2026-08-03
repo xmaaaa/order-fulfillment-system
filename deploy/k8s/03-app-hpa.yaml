@@ -1,0 +1,32 @@
+# ============================================================================
+# HorizontalPodAutoscaler (HPA)：根据指标自动增减 Deployment 的副本数。
+# 工作方式：每隔约 15s 读一次所有 Pod 的 CPU 用量，算平均使用率，
+#           若高于目标 → 加副本；持续偏低 → 减副本。始终在 [min, max] 之间。
+# 使用率 = 实际用量 / requests。我们 requests.cpu=250m，目标 50% → 目标≈125m/Pod。
+# ============================================================================
+apiVersion: autoscaling/v2       # v2 支持多指标、更灵活
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ofs-app
+spec:
+  # scaleTargetRef：这个 HPA 要伸缩谁 —— 指向我们的 Deployment
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ofs-app
+
+  minReplicas: 2                 # 再闲也保留 2 个（高可用底线）
+  maxReplicas: 10                # 再忙也不超过 10 个（成本上限）
+
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 20 # 目标：平均 CPU 使用率维持在 20%（调低，便于小压力演示扩容）
+
+  # behavior：控制伸缩的"手感"（可选，这里让缩容更快，方便你演示看到回落）
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 30   # 默认 300s，调成 30s 让缩容演示更快看到
