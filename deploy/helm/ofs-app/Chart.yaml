@@ -1,0 +1,7 @@
+# Chart.yaml：这个 Chart（应用包）的"身份证"
+apiVersion: v2                # Helm 3 用 v2
+name: ofs-app                 # Chart 名
+description: Order Fulfillment System - 应用部署 Chart
+type: application
+version: 0.1.0                # Chart 自身的版本（每次改 Chart 结构时递增）
+appVersion: "1.0.0"           # 里面装的应用版本（仅标识用）
