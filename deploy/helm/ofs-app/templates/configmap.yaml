@@ -1,0 +1,12 @@
+# ConfigMap：把 values.env 里的键值对渲染成配置，注入容器环境变量。
+# 改环境配置只改 values，不用重打镜像 —— 这就是"配置与镜像分离"。
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.Name }}-config
+  labels:
+    {{- include "ofs-app.labels" . | nindent 4 }}
+data:
+  {{- range $key, $val := .Values.env }}
+  {{ $key }}: {{ $val | quote }}
+  {{- end }}
