@@ -1,0 +1,25 @@
+# 下面用 if 包住：只有 values 里 hpa.enabled 为 true 时才渲染这个资源。
+# 这就是"用开关控制某个资源要不要部署"——大厂 Chart 常见做法。
+# （注意坑：注释里也别写模板语法，Go 模板连注释里的花括号也会当真解析！）
+{{- if .Values.hpa.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ .Chart.Name }}
+  labels:
+    {{- include "ofs-app.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ .Chart.Name }}
+  minReplicas: {{ .Values.hpa.minReplicas }}
+  maxReplicas: {{ .Values.hpa.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.hpa.targetCPUUtilizationPercentage }}
+{{- end }}
