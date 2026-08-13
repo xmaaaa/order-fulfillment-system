@@ -1,0 +1,43 @@
+# ============================================================================
+# values.yaml：默认配置（相当于"基线"/dev 值）。
+# 模板里所有 {{ .Values.xxx }} 都从这里取值。
+# 部署不同环境时，用 -f values-prod.yaml 覆盖这里的部分字段即可。
+# ============================================================================
+
+replicaCount: 2               # 副本数
+
+image:
+  repository: ofs-app         # 镜像名
+  tag: v1                     # 镜像标签（升级时改这里，或用 --set image.tag=v2）
+  pullPolicy: IfNotPresent    # 本地 kind load 的镜像用 IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8888
+
+# 资源配额
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+# HPA 自动扩容
+hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 50
+
+# PodDisruptionBudget
+pdb:
+  enabled: true
+  minAvailable: 1
+
+# 应用环境变量（会渲染进 ConfigMap，再注入容器）
+# 这里演示 config 管理：改环境就改这里，不用动镜像
+env:
+  SPRING_PROFILES_ACTIVE: "default"
+  JAVA_OPTS: "-Xms256m -Xmx768m"
