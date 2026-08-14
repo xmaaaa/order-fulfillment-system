@@ -1,0 +1,30 @@
+# ============================================================================
+# values-prod.yaml：生产环境的"差异值"。只写和默认(values.yaml)不同的部分。
+# 用法：helm install ... -f values.yaml -f values-prod.yaml
+#       后面的文件覆盖前面的同名字段 → 同一套模板渲染出"生产版"部署。
+# ============================================================================
+
+replicaCount: 5               # 生产跑更多副本
+
+image:
+  tag: v1                     # 生产通常锁定明确版本（不用 latest）
+
+resources:                    # 生产给更大资源
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+
+hpa:
+  minReplicas: 5
+  maxReplicas: 30
+  targetCPUUtilizationPercentage: 70
+
+pdb:
+  minAvailable: 3             # 生产至少保 3 个
+
+env:
+  SPRING_PROFILES_ACTIVE: "prod"
+  JAVA_OPTS: "-Xms1g -Xmx1536m"
