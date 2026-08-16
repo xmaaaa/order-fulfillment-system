@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- ⚠️ 关键：xm-ai 是"独立"的 Spring Boot 应用，父 pom 直接用 spring-boot-starter-parent，
+         不继承订单系统那个 3.2.4 的根 pom —— 这样版本完全隔离，Spring AI 想用哪个 Boot 版本都不影响老代码。 -->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.4.5</version>
+        <relativePath/> <!-- 从仓库找父 pom，不去找本地上级目录 -->
+    </parent>
+
+    <groupId>com.xm</groupId>
+    <artifactId>xm-ai</artifactId>
+    <version>1.0-SNAPSHOT</version>
+    <name>xm-ai</name>
+    <description>订单智能助手：Spring AI + DeepSeek</description>
+
+    <properties>
+        <java.version>21</java.version>
+        <spring-ai.version>1.0.1</spring-ai.version>
+    </properties>
+
+    <!-- 用 spring-ai-bom 统一管理所有 spring-ai 依赖的版本，具体依赖就不用写版本号了 -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- Web：提供 REST 接口 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- Spring AI 的 DeepSeek 集成：自动装配 ChatModel / ChatClient -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-deepseek</artifactId>
+        </dependency>
+
+        <!-- 本地 embedding 模型（ONNX transformers，all-MiniLM-L6-v2）：
+             DeepSeek 不提供 embedding，用它把文本转向量，免费离线。
+             首次启动会下载 ~90MB 模型文件（需联网一次）。 -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-transformers</artifactId>
+        </dependency>
+
+        <!-- 向量库模块：VectorStore / SimpleVectorStore / SearchRequest 在这里 -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-vector-store</artifactId>
+        </dependency>
+
+        <!-- 健康检查，方便以后接 K8s 探针（复用我们前面学的那套） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>
