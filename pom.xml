@@ -12,6 +12,10 @@
         <module>xm-spring</module>
         <module>xm-base</module>
         <module>xm-scenario</module>
+        <!-- AI 智能助手：独立 Spring Boot 3.4 + Spring AI 应用。
+             仅在此聚合一起构建；它的 <parent> 是 spring-boot-starter-parent 3.4.5，
+             不继承本 pom（3.2.4），所以版本互不影响。 -->
+        <module>xm-ai</module>
     </modules>
 
     <parent>
