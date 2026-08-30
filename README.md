@@ -120,7 +120,7 @@ for i in {1..30}; do curl -s -X POST "http://localhost:8888/demo/orders/submit?f
 
 ## Outbox pipeline
 
-When `xm.scenario.transaction` is `memory` or `jdbc`, pending outbox rows are relayed on a schedule: scan → idempotent consumer (log) → `markSent`. See [docs/outbox-pipeline.md](docs/outbox-pipeline.md). Toggle with `xm.scenario.outbox-relay.enabled`.
+When `xm.scenario.transaction` is `memory` or `jdbc`, pending outbox rows are relayed on a schedule: scan → idempotent consumer (log) → `markSent`. See [幂等-目的与思路](ofs-domain/docs/幂等-目的与思路.md) for the idempotency model behind the consumer. Toggle with `xm.scenario.outbox-relay.enabled`.
 
 ---
 
@@ -146,7 +146,7 @@ When `xm.scenario.transaction` is `memory` or `jdbc`, pending outbox rows are re
 
 **Layering**: App → Domain → Repository (clean architecture). Order domain owns state machine and invariants; application layer orchestrates locks, events, and distributed transactions.
 
-See [docs/architecture.md](docs/architecture.md) for the full architecture deep-dive.
+See [ofs-domain/docs/ARCHITECTURE.md](ofs-domain/docs/ARCHITECTURE.md) for the full architecture deep-dive.
 
 ---
 
@@ -160,7 +160,7 @@ See [docs/architecture.md](docs/architecture.md) for the full architecture deep-
 | **Anti-corruption layers** | PaymentClient/InventoryClient abstract external services. Swap Stub → Feign for real integration. |
 | **State machine in aggregate** | OrderState/OrderEvent + TransitionGuard keep transitions explicit and testable. |
 
-ADRs: [docs/adr/](docs/adr/)
+> Formal ADRs are not written yet — the rationale above plus [ofs-domain/docs/](ofs-domain/docs/) is the current record.
 
 ---
 
@@ -236,18 +236,22 @@ curl -X POST "http://localhost:8888/order/{orderId}/submit-with-payment-saga?amo
 ## Module Structure
 
 ```
-xm-java/
-├── ofs-domain/      # Domain & infrastructure: DDD, state machine, locks, transactions
-├── ofs-app/        # Spring Boot app: REST API, Seata, Redisson, config
-├── xm-base/          # Extras: design patterns, algorithms (standalone)
-└── docs/             # Architecture, ADRs
+order-fulfillment-system/
+├── ofs-domain/    # Domain & infrastructure: DDD, state machine, locks, transactions
+├── ofs-app/       # Spring Boot app: REST API, Kafka, Seata, Redisson, observability
+├── ofs-ai/        # AI assistant: Spring AI + DeepSeek (chat, tools, RAG, agent)
+├── xm-base/       # Extras: design patterns, algorithms (standalone, not part of the system)
+└── deploy/        # Kubernetes manifests + Helm chart + local kind cluster
 ```
 
 | Module | Responsibility |
 |--------|----------------|
 | **ofs-domain** | Order aggregate, OrderRepository, TCC/Saga participants, LockPolicy, LocalMessageTxSupport, IdempotentMessageProcessor |
-| **ofs-app** | OrderController, Seata integration, Sentinel client decorators, OrderTimeoutScheduler |
-| **xm-base** | Design patterns, algorithms, concurrency (optional) |
+| **ofs-app** | OrderController, Kafka producer/consumer + DLQ, Seata integration, Sentinel client decorators, OrderTimeoutScheduler, metrics/tracing/logging |
+| **ofs-ai** | Order assistant on Spring AI + DeepSeek: function calling over the order API, RAG, multi-turn memory, ReAct agent, SSE streaming, human-in-the-loop confirmation. Standalone Boot 3.4.5 app — aggregated by the root pom but does **not** inherit it (version isolation) |
+| **xm-base** | Design patterns, algorithms, concurrency — personal practice code, unrelated to the order system |
+
+> `ofs-ai` runs as its own process and calls `ofs-app` over HTTP (default `:8888`); it is not on the order request path.
 
 ---
 
@@ -290,11 +294,13 @@ xm-java/
 
 ## Documentation
 
-- [Architecture](docs/architecture.md) — Layering, modules, data flow
-- [Outbox pipeline](docs/outbox-pipeline.md) — Local message table relay + idempotent consumer
-- [ADRs](docs/adr/) — Architecture decision records
+- [Architecture](ofs-domain/docs/ARCHITECTURE.md) — Layering, distributed transactions, lock strategies
+- [幂等-目的与思路](ofs-domain/docs/幂等-目的与思路.md) — Idempotency model behind the outbox consumer
+- [状态机-设计思想与模式](ofs-domain/docs/状态机-设计思想与模式.md) — State machine & guard design patterns
 - [ofs-domain](ofs-domain/README.md) — Domain package structure
 - [ofs-domain Roadmap](ofs-domain/ROADMAP.md) — Implemented & planned
+- [ofs-ai](ofs-ai/README.md) — AI assistant: Spring AI mechanics, RAG, agent, pitfalls
+- [deploy](deploy/README.md) — Kubernetes + Helm runbook (local kind cluster)
 
 ---
 
