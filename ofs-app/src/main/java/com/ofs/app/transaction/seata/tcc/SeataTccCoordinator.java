@@ -10,10 +10,10 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 /**
  * 框架用：TCC 协调器，将执行包装在 Seata 全局事务内。
- * 配置 xm.scenario.tcc=seata 且 Seata Server 可用时生效。
+ * 配置 ofs.scenario.tcc=seata 且 Seata Server 可用时生效。
  */
 @ConditionalOnClass(GlobalTransactionContext.class)
-@ConditionalOnProperty(name = "xm.scenario.tcc", havingValue = "seata")
+@ConditionalOnProperty(name = "ofs.scenario.tcc", havingValue = "seata")
 public class SeataTccCoordinator implements TccCoordinator {
 
     private final SimpleTccCoordinator delegate = new SimpleTccCoordinator();

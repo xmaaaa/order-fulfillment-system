@@ -13,7 +13,7 @@ import java.util.Map;
  * saga=seata 时生效，steps 参数被忽略（由 JSON 定义流程）。
  */
 @Component
-@ConditionalOnProperty(name = "xm.scenario.saga", havingValue = "seata")
+@ConditionalOnProperty(name = "ofs.scenario.saga", havingValue = "seata")
 public class SeataSagaOrchestrator implements SagaOrchestrator {
 
     private static final String STATE_MACHINE_NAME = "orderSubmitWithPayment";

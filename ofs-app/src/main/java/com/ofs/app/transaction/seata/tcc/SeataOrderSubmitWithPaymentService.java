@@ -16,7 +16,7 @@ import java.math.BigDecimal;
  * - 学习版：手写 SimpleTccCoordinator 编排，Seata 仅包一层 begin/commit/rollback
  */
 @Service
-@ConditionalOnProperty(name = "xm.scenario.tcc", havingValue = "seata")
+@ConditionalOnProperty(name = "ofs.scenario.tcc", havingValue = "seata")
 public class SeataOrderSubmitWithPaymentService {
 
     private final SeataTccOrderAction orderAction;

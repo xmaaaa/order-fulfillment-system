@@ -17,7 +17,7 @@ import java.time.Clock;
 @Configuration
 @EnableScheduling
 @EnableConfigurationProperties(OrderTimeoutProperties.class)
-@ConditionalOnProperty(name = "xm.scenario.order-timeout.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "ofs.scenario.order-timeout.enabled", havingValue = "true")
 public class OrderTimeoutConfig {
 
     @Bean

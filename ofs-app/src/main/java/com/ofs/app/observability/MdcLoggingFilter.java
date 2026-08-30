@@ -19,7 +19,7 @@ import java.util.UUID;
  *  method     — HTTP 方法
  *  path       — 请求路径
  *
- * traceId / spanId 由 Micrometer Tracing 自动注入（xm.scenario.kafka.enabled 无关）。
+ * traceId / spanId 由 Micrometer Tracing 自动注入（ofs.scenario.kafka.enabled 无关）。
  * 所有字段均会出现在 JSON 日志的顶层，ELK 可直接过滤。
  */
 @Component

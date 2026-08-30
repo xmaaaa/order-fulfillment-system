@@ -27,7 +27,7 @@ import org.springframework.stereotype.Component;
  * IdempotentMessageProcessor 在异常时释放 key，保证重试时可以重新消费。
  */
 @Component
-@ConditionalOnProperty(name = "xm.scenario.kafka.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "ofs.scenario.kafka.enabled", havingValue = "true")
 public class OrderEventConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(OrderEventConsumer.class);
@@ -38,10 +38,10 @@ public class OrderEventConsumer {
             new IdempotentMessageProcessor(new InMemoryIdempotencyKeyStore());
 
     @RetryableTopic(
-            attempts = "${xm.scenario.kafka.retry.attempts:3}",
+            attempts = "${ofs.scenario.kafka.retry.attempts:3}",
             backoff = @Backoff(
-                    delayExpression = "${xm.scenario.kafka.retry.delay-ms:1000}",
-                    multiplierExpression = "${xm.scenario.kafka.retry.multiplier:2.0}"
+                    delayExpression = "${ofs.scenario.kafka.retry.delay-ms:1000}",
+                    multiplierExpression = "${ofs.scenario.kafka.retry.multiplier:2.0}"
             ),
             topicSuffixingStrategy = TopicSuffixingStrategy.SUFFIX_WITH_INDEX_VALUE,
             dltTopicSuffix = "-dlt",
@@ -65,10 +65,10 @@ public class OrderEventConsumer {
     }
 
     @RetryableTopic(
-            attempts = "${xm.scenario.kafka.retry.attempts:3}",
+            attempts = "${ofs.scenario.kafka.retry.attempts:3}",
             backoff = @Backoff(
-                    delayExpression = "${xm.scenario.kafka.retry.delay-ms:1000}",
-                    multiplierExpression = "${xm.scenario.kafka.retry.multiplier:2.0}"
+                    delayExpression = "${ofs.scenario.kafka.retry.delay-ms:1000}",
+                    multiplierExpression = "${ofs.scenario.kafka.retry.multiplier:2.0}"
             ),
             topicSuffixingStrategy = TopicSuffixingStrategy.SUFFIX_WITH_INDEX_VALUE,
             dltTopicSuffix = "-dlt",

@@ -36,14 +36,14 @@ filebeat.inputs:
 # ── 输出：发给哪里 ────────────────────────────────────────────────────────────
 output.elasticsearch:
   hosts: ["http://elasticsearch:9200"]   # ES 地址，用 Docker 服务名（容器间网络互通）
-  index: "xm-service-%{+yyyy.MM.dd}"     # 索引名按天分，例如 xm-service-2026.07.18
+  index: "ofs-app-%{+yyyy.MM.dd}"        # 索引名按天分，例如 ofs-app-2026.07.18
                                           # 好处：可以按天清理旧数据，查询时范围更小
 
 # ── 索引模板：告诉 ES 如何映射字段类型 ───────────────────────────────────────
 setup.ilm.enabled: false          # 关闭索引生命周期管理（ILM），使用手动按天索引即可
                                    # ILM 适合生产环境自动滚动，本地不需要这个复杂度
-setup.template.name: "xm-service"         # 模板名称
-setup.template.pattern: "xm-service-*"   # 这个模板应用于所有 xm-service- 开头的索引
+setup.template.name: "ofs-app"    # 模板名称
+setup.template.pattern: "ofs-app-*"   # 这个模板应用于所有 ofs-app- 开头的索引
 
 # ── Filebeat 自身日志 ─────────────────────────────────────────────────────────
 logging.level: info          # Filebeat 自身的日志级别，info 足够排查问题

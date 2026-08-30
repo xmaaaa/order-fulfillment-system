@@ -33,8 +33,8 @@ import java.util.concurrent.ThreadLocalRandom;
  * 数据去哪里看：
  *   Metrics → http://localhost:9090  搜 orders_submitted_total
  *   Grafana  → http://localhost:3000  "Order Fulfillment" dashboard
- *   Traces   → http://localhost:16686 服务 xm-service（需 -DMANAGEMENT_TRACING_ENABLED=true）
- *   Logs     → http://localhost:5601  Data View: xm-service-*  搜 orderId
+ *   Traces   → http://localhost:16686 服务 ofs-app（需 -DMANAGEMENT_TRACING_ENABLED=true）
+ *   Logs     → http://localhost:5601  Data View: ofs-app-*  搜 orderId
  */
 @RestController
 @RequestMapping("/demo/orders")

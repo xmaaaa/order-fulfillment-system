@@ -7,7 +7,7 @@ import java.time.Duration;
 /**
  * 订单超时自动取消：扫描间隔与「待支付最长等待时间」。
  */
-@ConfigurationProperties(prefix = "xm.scenario.order-timeout")
+@ConfigurationProperties(prefix = "ofs.scenario.order-timeout")
 public class OrderTimeoutProperties {
 
     /**

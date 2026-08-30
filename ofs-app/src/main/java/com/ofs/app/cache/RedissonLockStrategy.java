@@ -7,7 +7,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * 框架用：分布式锁策略，底层 Redisson，多机有效。
- * 配置 xm.scenario.lock=redisson 且 redis.enabled=true 时生效。
+ * 配置 ofs.scenario.lock=redisson 且 redis.enabled=true 时生效。
  */
 public class RedissonLockStrategy implements LockStrategy {
 

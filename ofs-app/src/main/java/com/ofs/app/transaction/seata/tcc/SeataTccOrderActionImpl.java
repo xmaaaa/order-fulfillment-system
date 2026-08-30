@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
  * Seata TCC 订单参与者实现。
  */
 @Service
-@ConditionalOnProperty(name = "xm.scenario.tcc", havingValue = "seata")
+@ConditionalOnProperty(name = "ofs.scenario.tcc", havingValue = "seata")
 public class SeataTccOrderActionImpl implements SeataTccOrderAction {
 
     private final OrderDomainService orderDomainService;

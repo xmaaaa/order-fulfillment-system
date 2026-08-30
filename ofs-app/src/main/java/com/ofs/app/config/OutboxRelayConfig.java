@@ -22,15 +22,15 @@ import java.util.function.Consumer;
  * Outbox 闭环：定时扫表 → outboundHandler → markSent。
  *
  * outboundHandler 优先级：
- *   1. KafkaOutboundHandler（xm.scenario.kafka.enabled=true 时注入）→ 发 Kafka
+ *   1. KafkaOutboundHandler（ofs.scenario.kafka.enabled=true 时注入）→ 发 Kafka
  *   2. 降级：幂等日志处理器（本地模拟下游消费）
  *
- * 需 {@code xm.scenario.transaction=memory|jdbc} 且 {@code xm.scenario.outbox-relay.enabled=true}。
+ * 需 {@code ofs.scenario.transaction=memory|jdbc} 且 {@code ofs.scenario.outbox-relay.enabled=true}。
  */
 @Configuration
 @EnableScheduling
 @ConditionalOnBean(LocalMessageTxSupport.class)
-@ConditionalOnProperty(name = "xm.scenario.outbox-relay.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "ofs.scenario.outbox-relay.enabled", havingValue = "true", matchIfMissing = true)
 public class OutboxRelayConfig {
 
     private static final Logger log = LoggerFactory.getLogger(OutboxRelayConfig.class);
@@ -71,7 +71,7 @@ public class OutboxRelayConfig {
             this.runner = runner;
         }
 
-        @Scheduled(fixedDelayString = "${xm.scenario.outbox-relay.interval-ms:5000}")
+        @Scheduled(fixedDelayString = "${ofs.scenario.outbox-relay.interval-ms:5000}")
         public void tick() {
             int n = runner.relayBatch(50);
             if (n > 0) {

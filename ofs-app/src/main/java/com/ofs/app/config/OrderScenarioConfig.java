@@ -70,7 +70,7 @@ public class OrderScenarioConfig {
 
     // ---------- 锁：学习用（订单/库存/用户 不同 lease：30s/10s/5s） ----------
     @Bean
-    @ConditionalOnProperty(name = "xm.scenario.lock", havingValue = "memory")
+    @ConditionalOnProperty(name = "ofs.scenario.lock", havingValue = "memory")
     public LockPolicy memoryLockPolicy() {
         LockStrategy base = new InMemoryLockStrategy("MEMORY");
         return new CompositeLockPolicy(
@@ -82,7 +82,7 @@ public class OrderScenarioConfig {
 
     // ---------- 锁：框架用（Redisson raw，Delegating 负责各维 key 与 lease） ----------
     @Bean
-    @ConditionalOnProperty(name = "xm.scenario.lock", havingValue = "redisson")
+    @ConditionalOnProperty(name = "ofs.scenario.lock", havingValue = "redisson")
     @ConditionalOnBean(RedissonClient.class)
     public LockPolicy redissonLockPolicy(RedissonClient redissonClient) {
         LockStrategy base = RedissonLockStrategy.raw(redissonClient);
@@ -95,14 +95,14 @@ public class OrderScenarioConfig {
 
     // ---------- 本地消息表：学习用（内存，无 DB） ----------
     @Bean
-    @ConditionalOnProperty(name = "xm.scenario.transaction", havingValue = "memory")
+    @ConditionalOnProperty(name = "ofs.scenario.transaction", havingValue = "memory")
     public LocalMessageTxSupport memoryLocalMessageTxSupport() {
         return new InMemoryLocalMessageTxSupport();
     }
 
     // ---------- 本地消息表：生产用（JdbcLocalMessageTxSupport，需 outbox_message 表） ----------
     @Bean
-    @ConditionalOnProperty(name = "xm.scenario.transaction", havingValue = "jdbc")
+    @ConditionalOnProperty(name = "ofs.scenario.transaction", havingValue = "jdbc")
     @ConditionalOnBean(DataSource.class)
     public LocalMessageTxSupport jdbcLocalMessageTxSupport(DataSource dataSource,
                                                           PlatformTransactionManager transactionManager) {

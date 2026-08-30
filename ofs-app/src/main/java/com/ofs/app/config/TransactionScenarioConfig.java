@@ -25,14 +25,14 @@ public class TransactionScenarioConfig {
 
     // ---------- TCC：学习用 ----------
     @Bean
-    @ConditionalOnProperty(name = "xm.scenario.tcc", havingValue = "learning")
+    @ConditionalOnProperty(name = "ofs.scenario.tcc", havingValue = "learning")
     public TccCoordinator learningTccCoordinator() {
         return new SimpleTccCoordinator();
     }
 
     // ---------- TCC：框架用（Seata，需 Seata 依赖） ----------
     @Bean
-    @ConditionalOnProperty(name = "xm.scenario.tcc", havingValue = "seata")
+    @ConditionalOnProperty(name = "ofs.scenario.tcc", havingValue = "seata")
     @ConditionalOnClass(name = "org.apache.seata.tm.api.GlobalTransactionContext")
     public TccCoordinator seataTccCoordinator() {
         return new SeataTccCoordinator();
@@ -40,7 +40,7 @@ public class TransactionScenarioConfig {
 
     // ---------- Saga：学习用 ----------
     @Bean
-    @ConditionalOnProperty(name = "xm.scenario.saga", havingValue = "learning")
+    @ConditionalOnProperty(name = "ofs.scenario.saga", havingValue = "learning")
     public SagaOrchestrator learningSagaOrchestrator() {
         return new SimpleSagaOrchestrator();
     }
@@ -71,28 +71,28 @@ public class TransactionScenarioConfig {
 
     // ---------- 防腐层桩（TCC/Saga 业务用例依赖） ----------
     @Bean("scenarioPaymentClientStub")
-    @ConditionalOnExpression("'${xm.scenario.tcc:}'.length()>0 || '${xm.scenario.saga:}'.length()>0")
+    @ConditionalOnExpression("'${ofs.scenario.tcc:}'.length()>0 || '${ofs.scenario.saga:}'.length()>0")
     public com.ofs.domain.payment.client.PaymentClient scenarioPaymentClientStub() {
         return new StubPaymentClient();
     }
 
     @Bean("scenarioPaymentClient")
-    @ConditionalOnExpression("'${xm.scenario.tcc:}'.length()>0 || '${xm.scenario.saga:}'.length()>0")
-    @ConditionalOnProperty(name = "xm.scenario.circuit-breaker", havingValue = "false", matchIfMissing = true)
+    @ConditionalOnExpression("'${ofs.scenario.tcc:}'.length()>0 || '${ofs.scenario.saga:}'.length()>0")
+    @ConditionalOnProperty(name = "ofs.scenario.circuit-breaker", havingValue = "false", matchIfMissing = true)
     public com.ofs.domain.payment.client.PaymentClient scenarioPaymentClientDirect(
             @Qualifier("scenarioPaymentClientStub") com.ofs.domain.payment.client.PaymentClient stub) {
         return stub;
     }
 
     @Bean("scenarioInventoryClientStub")
-    @ConditionalOnExpression("'${xm.scenario.tcc:}'.length()>0 || '${xm.scenario.saga:}'.length()>0")
+    @ConditionalOnExpression("'${ofs.scenario.tcc:}'.length()>0 || '${ofs.scenario.saga:}'.length()>0")
     public com.ofs.domain.inventory.client.InventoryClient scenarioInventoryClientStub() {
         return new StubInventoryClient();
     }
 
     @Bean("scenarioInventoryClient")
-    @ConditionalOnExpression("'${xm.scenario.tcc:}'.length()>0 || '${xm.scenario.saga:}'.length()>0")
-    @ConditionalOnProperty(name = "xm.scenario.circuit-breaker", havingValue = "false", matchIfMissing = true)
+    @ConditionalOnExpression("'${ofs.scenario.tcc:}'.length()>0 || '${ofs.scenario.saga:}'.length()>0")
+    @ConditionalOnProperty(name = "ofs.scenario.circuit-breaker", havingValue = "false", matchIfMissing = true)
     public com.ofs.domain.inventory.client.InventoryClient scenarioInventoryClientDirect(
             @Qualifier("scenarioInventoryClientStub") com.ofs.domain.inventory.client.InventoryClient stub) {
         return stub;

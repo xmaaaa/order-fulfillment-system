@@ -30,13 +30,13 @@
 
 ### Seata TCC 两种用法
 
-- **学习版**（xm.scenario.tcc=learning）：SimpleTccCoordinator 手写 Try/Confirm/Cancel 编排，Seata 仅包一层 begin/commit/rollback
-- **框架版**（xm.scenario.tcc=seata）：SeataOrderSubmitWithPaymentService 使用 @GlobalTransactional，各参与者用 @TwoPhaseBusinessAction 声明 prepare/commit/rollback，Seata 自动管理 2PC
+- **学习版**（ofs.scenario.tcc=learning）：SimpleTccCoordinator 手写 Try/Confirm/Cancel 编排，Seata 仅包一层 begin/commit/rollback
+- **框架版**（ofs.scenario.tcc=seata）：SeataOrderSubmitWithPaymentService 使用 @GlobalTransactional，各参与者用 @TwoPhaseBusinessAction 声明 prepare/commit/rollback，Seata 自动管理 2PC
 
 ### Seata Saga 两种用法
 
-- **学习版**（xm.scenario.saga=learning）：SimpleSagaOrchestrator 手写 SagaStep 编排
-- **框架版**（xm.scenario.saga=seata）：SeataSagaOrchestrator + JSON 状态机（statelang/order_submit_with_payment.json），需 seata-saga-spring、saga 状态表
+- **学习版**（ofs.scenario.saga=learning）：SimpleSagaOrchestrator 手写 SagaStep 编排
+- **框架版**（ofs.scenario.saga=seata）：SeataSagaOrchestrator + JSON 状态机（statelang/order_submit_with_payment.json），需 seata-saga-spring、saga 状态表
 
 ## 3. 锁策略
 

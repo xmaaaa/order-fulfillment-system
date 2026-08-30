@@ -95,7 +95,7 @@ public class OrderController {
             if (orderSubmitWithPaymentTccService != null) {
                 return orderSubmitWithPaymentTccService.execute(orderId, amount, userId);
             }
-            throw new IllegalStateException("TCC not configured (set xm.scenario.tcc=learning or seata)");
+            throw new IllegalStateException("TCC not configured (set ofs.scenario.tcc=learning or seata)");
         });
         return Map.of("success", ok);
     }
@@ -124,7 +124,7 @@ public class OrderController {
                                                      @RequestParam(defaultValue = "0") BigDecimal amount,
                                                      @RequestParam(defaultValue = "user1") String userId) {
         if (orderSubmitWithPaymentSagaService == null) {
-            throw new IllegalStateException("OrderSubmitWithPaymentSagaService not configured (set xm.scenario.saga)");
+            throw new IllegalStateException("OrderSubmitWithPaymentSagaService not configured (set ofs.scenario.saga)");
         }
         boolean ok = orderSubmitWithPaymentSagaService.execute(orderId, amount, userId);
         return Map.of("success", ok);

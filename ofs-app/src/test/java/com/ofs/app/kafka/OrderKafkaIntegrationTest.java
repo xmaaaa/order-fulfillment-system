@@ -1,6 +1,6 @@
 package com.ofs.app.kafka;
 
-import com.ofs.app.web.XmBootStarter;
+import com.ofs.app.web.OfsAppApplication;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,12 +38,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *
  * 使用真实 Kafka 容器，验证 at-least-once 投递语义。
  */
-@SpringBootTest(classes = {XmBootStarter.class, OrderKafkaIntegrationTest.TestVerifierConfig.class},
+@SpringBootTest(classes = {OfsAppApplication.class, OrderKafkaIntegrationTest.TestVerifierConfig.class},
         properties = {
                 "management.otlp.tracing.endpoint=",
-                "xm.scenario.kafka.enabled=true",
-                "xm.scenario.outbox-relay.enabled=true",
-                "xm.scenario.outbox-relay.interval-ms=500"
+                "ofs.scenario.kafka.enabled=true",
+                "ofs.scenario.outbox-relay.enabled=true",
+                "ofs.scenario.outbox-relay.interval-ms=500"
         })
 @AutoConfigureMockMvc
 @Testcontainers(disabledWithoutDocker = true)

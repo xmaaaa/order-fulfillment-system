@@ -20,11 +20,11 @@ import java.util.List;
  * Sentinel 熔断/降级：装饰 {@link PaymentClient}、{@link InventoryClient}。
  * 异常比例 50%、最小请求数 5、熔断恢复窗口 30s。
  * <p>
- * 生效条件：{@code xm.scenario.circuit-breaker=true}（沿用原配置键）。
+ * 生效条件：{@code ofs.scenario.circuit-breaker=true}（沿用原配置键）。
  * Dashboard：{@code spring.cloud.sentinel.transport.dashboard}
  */
 @Configuration
-@ConditionalOnProperty(name = "xm.scenario.circuit-breaker", havingValue = "true")
+@ConditionalOnProperty(name = "ofs.scenario.circuit-breaker", havingValue = "true")
 public class SentinelClientConfig {
 
     @PostConstruct

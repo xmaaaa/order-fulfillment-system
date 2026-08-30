@@ -13,7 +13,7 @@
 | **TCC** | TccCoordinator、SimpleTccCoordinator、MutableTccContext、Order/Payment/Inventory TCC 参与者 | transaction.tcc, transaction.tcc.participant |
 | **Saga** | SagaOrchestrator、SimpleSagaOrchestrator、DefaultSagaContext、逆序补偿 | transaction.saga |
 | **本地消息表** | LocalMessageTxSupport、InMemory + JdbcLocalMessageTxSupport、outbox_schema.sql | transaction.localmessage, db/outbox_schema.sql |
-| **Outbox 闭环** | OutboxRelayRunner 扫表 → 幂等消费 → markSent；`xm.scenario.outbox-relay` | transaction.localmessage, ofs-app OutboxRelayConfig |
+| **Outbox 闭环** | OutboxRelayRunner 扫表 → 幂等消费 → markSent；`ofs.scenario.outbox-relay` | transaction.localmessage, ofs-app OutboxRelayConfig |
 | **CQRS 读模型** | OrderView、OrderQueryService、OrderQueryServiceImpl | order.application.query |
 | **重试策略** | RetryPolicy、ExponentialBackoffRetry | shared.retry |
 | **可观测 TraceId** | TraceIdHolder（ThreadLocal）；HTTP：`TraceIdFilter` + MDC `traceId` | shared.observability, ofs-app TraceIdFilter |

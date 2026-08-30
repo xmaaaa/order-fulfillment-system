@@ -13,9 +13,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest(classes = XmBootStarter.class, properties = {
+@SpringBootTest(classes = OfsAppApplication.class, properties = {
         "management.otlp.tracing.endpoint=",
-        "xm.scenario.outbox-relay.enabled=false"
+        "ofs.scenario.outbox-relay.enabled=false"
 })
 @AutoConfigureMockMvc
 class OrderControllerIntegrationTest {

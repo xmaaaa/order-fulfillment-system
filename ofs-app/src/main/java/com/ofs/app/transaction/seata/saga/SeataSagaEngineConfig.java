@@ -14,7 +14,7 @@ import javax.sql.DataSource;
  * 需 statelang/*.json 与 saga 状态表（见 seata-saga-engine-store 的 sql）。
  */
 @Configuration
-@ConditionalOnProperty(name = "xm.scenario.saga", havingValue = "seata")
+@ConditionalOnProperty(name = "ofs.scenario.saga", havingValue = "seata")
 public class SeataSagaEngineConfig {
 
     @Bean
@@ -23,7 +23,7 @@ public class SeataSagaEngineConfig {
         config.setDataSource(dataSource);
         config.setResources(new String[]{"classpath*:statelang/*.json"});
         config.setEnableAsync(false);
-        config.setApplicationId("xm-service");
+        config.setApplicationId("ofs-app");
         config.setTxServiceGroup("default_tx_group");
         config.setSagaBranchRegisterEnable(false);
 

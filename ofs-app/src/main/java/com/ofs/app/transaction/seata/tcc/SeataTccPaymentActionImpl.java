@@ -11,7 +11,7 @@ import java.math.BigDecimal;
  * Seata TCC 支付参与者实现。
  */
 @Service
-@ConditionalOnProperty(name = "xm.scenario.tcc", havingValue = "seata")
+@ConditionalOnProperty(name = "ofs.scenario.tcc", havingValue = "seata")
 public class SeataTccPaymentActionImpl implements SeataTccPaymentAction {
 
     private final PaymentClient paymentClient;

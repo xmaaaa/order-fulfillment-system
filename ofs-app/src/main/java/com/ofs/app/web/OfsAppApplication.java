@@ -19,9 +19,9 @@ import org.springframework.context.annotation.EnableAspectJAutoProxy;
         "com.ofs"
 })
 @EnableAspectJAutoProxy(proxyTargetClass = true)
-public class XmBootStarter {
+public class OfsAppApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(XmBootStarter.class, args);
+        SpringApplication.run(OfsAppApplication.class, args);
     }
 }

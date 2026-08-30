@@ -8,9 +8,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * 这是一个独立的 Spring Boot 应用（和订单主系统分开部署）。
  */
 @SpringBootApplication
-public class XmAiApplication {
+public class OfsAiApplication {
     public static void main(String[] args) {
 
-        SpringApplication.run(XmAiApplication.class, args);
+        SpringApplication.run(OfsAiApplication.class, args);
     }
 }

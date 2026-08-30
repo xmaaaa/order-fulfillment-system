@@ -17,7 +17,7 @@ import java.util.List;
  * @author eddiema
  */
 @Service
-@ConditionalOnProperty(name = "xm.scenario.tcc", havingValue = "seata")
+@ConditionalOnProperty(name = "ofs.scenario.tcc", havingValue = "seata")
 public class SeataTccInventoryActionImpl implements SeataTccInventoryAction {
 
     private static final String KEY_RESERVE_IDS = "reserveIds";

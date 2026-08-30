@@ -48,15 +48,15 @@ curl -X POST "http://localhost:8888/demo/orders/submit?fail=true"   # 模拟失�
 |------|------|--------|
 | **Prometheus** | `localhost:9090` | Status → Targets 看采集状态；Graph 写 PromQL；Alerts 看 SLO 规则 |
 | **Grafana** | `localhost:3000` (admin/admin) | Dashboards → Order Fulfillment，第三行是订单业务指标 |
-| **Jaeger** | `localhost:16686` | 服务选 `xm-service`，搜 Traces，点进去看 Span 瀑布图 |
+| **Jaeger** | `localhost:16686` | 服务选 `ofs-app`，搜 Traces，点进去看 Span 瀑布图 |
 | **Kibana** | `localhost:5601` | 首次需建 Data View（见下方），然后 Discover 搜日志 |
 
 ### Kibana 首次配置（只需做一次）
 
 ```
 Management → Data Views → Create data view
-  Name:              xm-service
-  Index pattern:     xm-service-*
+  Name:              ofs-app
+  Index pattern:     ofs-app-*
   Timestamp field:   @timestamp
 → Save
 ```
@@ -120,7 +120,7 @@ for i in {1..30}; do curl -s -X POST "http://localhost:8888/demo/orders/submit?f
 
 ## Outbox pipeline
 
-When `xm.scenario.transaction` is `memory` or `jdbc`, pending outbox rows are relayed on a schedule: scan → idempotent consumer (log) → `markSent`. See [幂等-目的与思路](ofs-domain/docs/幂等-目的与思路.md) for the idempotency model behind the consumer. Toggle with `xm.scenario.outbox-relay.enabled`.
+When `ofs.scenario.transaction` is `memory` or `jdbc`, pending outbox rows are relayed on a schedule: scan → idempotent consumer (log) → `markSent`. See [幂等-目的与思路](ofs-domain/docs/幂等-目的与思路.md) for the idempotency model behind the consumer. Toggle with `ofs.scenario.outbox-relay.enabled`.
 
 ---
 
@@ -224,7 +224,7 @@ curl -X POST http://localhost:8888/order/{orderId}/ship
 
 ### Order Flow (TCC / Saga)
 
-Configure `xm.scenario.tcc` or `xm.scenario.saga` in `application.yml`:
+Configure `ofs.scenario.tcc` or `ofs.scenario.saga` in `application.yml`:
 
 ```bash
 curl -X POST "http://localhost:8888/order/{orderId}/submit-with-payment-tcc?amount=198&userId=user1"
@@ -257,7 +257,7 @@ order-fulfillment-system/
 
 ## Configuration
 
-`xm.scenario` in `application.yml`:
+`ofs.scenario` in `application.yml`:
 
 | Property | Values | Description |
 |----------|--------|--------------|

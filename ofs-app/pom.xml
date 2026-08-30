@@ -27,7 +27,7 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
-                    <mainClass>com.ofs.app.web.XmBootStarter</mainClass>
+                    <mainClass>com.ofs.app.web.OfsAppApplication</mainClass>
                 </configuration>
             </plugin>
         </plugins>

@@ -1,6 +1,6 @@
 package com.ofs.app.kafka;
 
-import com.ofs.app.web.XmBootStarter;
+import com.ofs.app.web.OfsAppApplication;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -45,15 +45,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * delay=100ms 保证测试在秒级完成。
  */
 @SpringBootTest(
-        classes = {XmBootStarter.class, OrderKafkaDltIntegrationTest.DltTestConfig.class},
+        classes = {OfsAppApplication.class, OrderKafkaDltIntegrationTest.DltTestConfig.class},
         properties = {
                 "management.otlp.tracing.endpoint=",
-                "xm.scenario.kafka.enabled=true",
-                "xm.scenario.outbox-relay.enabled=true",
-                "xm.scenario.outbox-relay.interval-ms=500",
-                "xm.scenario.kafka.retry.attempts=2",
-                "xm.scenario.kafka.retry.delay-ms=100",
-                "xm.scenario.kafka.retry.multiplier=1.0"
+                "ofs.scenario.kafka.enabled=true",
+                "ofs.scenario.outbox-relay.enabled=true",
+                "ofs.scenario.outbox-relay.interval-ms=500",
+                "ofs.scenario.kafka.retry.attempts=2",
+                "ofs.scenario.kafka.retry.delay-ms=100",
+                "ofs.scenario.kafka.retry.multiplier=1.0"
         })
 @AutoConfigureMockMvc
 @Testcontainers(disabledWithoutDocker = true)
@@ -114,10 +114,10 @@ class OrderKafkaDltIntegrationTest {
          * 使用独立的 test-fail-group，不干扰 fulfillment/notification 正常消费路径。
          */
         @RetryableTopic(
-                attempts = "${xm.scenario.kafka.retry.attempts:2}",
+                attempts = "${ofs.scenario.kafka.retry.attempts:2}",
                 backoff = @Backoff(
-                        delayExpression = "${xm.scenario.kafka.retry.delay-ms:100}",
-                        multiplierExpression = "${xm.scenario.kafka.retry.multiplier:1.0}"
+                        delayExpression = "${ofs.scenario.kafka.retry.delay-ms:100}",
+                        multiplierExpression = "${ofs.scenario.kafka.retry.multiplier:1.0}"
                 ),
                 topicSuffixingStrategy = TopicSuffixingStrategy.SUFFIX_WITH_INDEX_VALUE,
                 dltTopicSuffix = "-dlt",

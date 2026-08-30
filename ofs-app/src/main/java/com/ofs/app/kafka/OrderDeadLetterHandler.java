@@ -21,7 +21,7 @@ import org.springframework.stereotype.Component;
  *   3. 触发补偿事务（退款、库存回滚等）
  */
 @Component
-@ConditionalOnProperty(name = "xm.scenario.kafka.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "ofs.scenario.kafka.enabled", havingValue = "true")
 public class OrderDeadLetterHandler {
 
     private static final Logger log = LoggerFactory.getLogger(OrderDeadLetterHandler.class);

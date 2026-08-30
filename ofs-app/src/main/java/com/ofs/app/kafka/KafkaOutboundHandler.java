@@ -18,7 +18,7 @@ import java.util.function.Consumer;
  * Key = messageId（String），Kafka 按 key hash 路由分区，保证同一消息不跨分区乱序。
  */
 @Component
-@ConditionalOnProperty(name = "xm.scenario.kafka.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "ofs.scenario.kafka.enabled", havingValue = "true")
 public class KafkaOutboundHandler implements Consumer<LocalMessageTxSupport.PendingMessage> {
 
     private static final Logger log = LoggerFactory.getLogger(KafkaOutboundHandler.class);

@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
  * 定时扫描超时未支付订单；扫描间隔与 {@link OrderTimeoutProperties#getScanInterval()} 一致。
  */
 @Component
-@ConditionalOnProperty(name = "xm.scenario.order-timeout.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "ofs.scenario.order-timeout.enabled", havingValue = "true")
 class OrderTimeoutScheduledJob {
 
     private final OrderTimeoutScheduler scheduler;
@@ -18,7 +18,7 @@ class OrderTimeoutScheduledJob {
         this.scheduler = scheduler;
     }
 
-    @Scheduled(fixedDelayString = "${xm.scenario.order-timeout.scan-interval-ms:60000}")
+    @Scheduled(fixedDelayString = "${ofs.scenario.order-timeout.scan-interval-ms:60000}")
     public void tick() {
         scheduler.run();
     }

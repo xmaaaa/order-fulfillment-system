@@ -17,7 +17,7 @@ import java.util.List;
  * order_submit_with_payment.json
  */
 @Service("orderSubmitSagaAction")
-@ConditionalOnProperty(name = "xm.scenario.saga", havingValue = "seata")
+@ConditionalOnProperty(name = "ofs.scenario.saga", havingValue = "seata")
 public class OrderSubmitSagaAction {
 
     private final OrderDomainService orderDomainService;

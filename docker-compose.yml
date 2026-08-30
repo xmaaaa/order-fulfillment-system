@@ -28,7 +28,7 @@ services:
   # 注意：KAFKA_ADVERTISED_LISTENERS 用的是 Docker 内部名 kafka:9092
   #       容器间通信正常；宿主机应用连 Kafka 需配置 KAFKA_BOOTSTRAP_SERVERS=localhost:9092
   #       （Docker 把 9092 暴露到宿主机，但 Kafka 回复的 broker 地址是 kafka:9092 宿主机无法解析）
-  #       实际影响：本地开发启用 Kafka（xm.scenario.kafka.enabled=true）时功能受限，
+  #       实际影响：本地开发启用 Kafka（ofs.scenario.kafka.enabled=true）时功能受限，
   #       建议用 --profile app 全容器化模式测试 Kafka 功能
   kafka:
     image: apache/kafka:3.7.0
@@ -111,7 +111,7 @@ services:
 
   # ── Logs：Elasticsearch ───────────────────────────────────────────────────
   # 存储结构化日志，每条 JSON 日志行 = 一个 document
-  # 索引按天分：xm-service-2026.07.18、xm-service-2026.07.19 ...
+  # 索引按天分：ofs-app-2026.07.18、ofs-app-2026.07.19 ...
   elasticsearch:
     image: elasticsearch:8.13.4
     container_name: elasticsearch
@@ -130,7 +130,7 @@ services:
 
   # ── Logs：Kibana ──────────────────────────────────────────────────────────
   # Elasticsearch 的可视化 UI，用于搜索和过滤日志
-  # 首次使用需创建 Data View：Management → Data Views → xm-service-* / @timestamp
+  # 首次使用需创建 Data View：Management → Data Views → ofs-app-* / @timestamp
   kibana:
     image: kibana:8.13.4
     container_name: kibana
@@ -179,11 +179,11 @@ services:
         condition: service_started
     environment:
       - SERVER_PORT=8888
-      - XM_SCENARIO_LOCK=memory
-      - XM_SCENARIO_TRANSACTION=memory
-      - XM_SCENARIO_TCC=learning
-      - XM_SCENARIO_SAGA=learning
-      - XM_SCENARIO_KAFKA_ENABLED=true
+      - OFS_SCENARIO_LOCK=memory
+      - OFS_SCENARIO_TRANSACTION=memory
+      - OFS_SCENARIO_TCC=learning
+      - OFS_SCENARIO_SAGA=learning
+      - OFS_SCENARIO_KAFKA_ENABLED=true
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092          # 容器内用 Docker 服务名
       - MANAGEMENT_TRACING_ENABLED=true
       - MANAGEMENT_TRACING_SAMPLING_PROBABILITY=1.0
