@@ -4,21 +4,21 @@ WORKDIR /app
 
 COPY pom.xml .
 COPY xm-base/pom.xml xm-base/
-COPY xm-scenario/pom.xml xm-scenario/
-COPY xm-spring/pom.xml xm-spring/
+COPY ofs-domain/pom.xml ofs-domain/
+COPY ofs-app/pom.xml ofs-app/
 
 # Download dependencies
 RUN mvn dependency:go-offline -B
 
 COPY . .
-RUN mvn package -pl xm-spring -am -DskipTests -B
+RUN mvn package -pl ofs-app -am -DskipTests -B
 
 # Runtime stage
 FROM eclipse-temurin:21-jre-alpine
 RUN apk add --no-cache wget
 WORKDIR /app
 
-COPY --from=builder /app/xm-spring/target/*.jar app.jar
+COPY --from=builder /app/ofs-app/target/*.jar app.jar
 
 EXPOSE 8888
 

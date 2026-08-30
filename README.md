@@ -33,7 +33,7 @@ A reference implementation of an **order fulfillment system** demonstrating ente
 docker compose up -d
 
 # 2. 启动应用（MANAGEMENT_TRACING_ENABLED=true 才会发 Span 到 Jaeger）
-cd xm-spring && MANAGEMENT_TRACING_ENABLED=true mvn spring-boot:run
+cd ofs-app && MANAGEMENT_TRACING_ENABLED=true mvn spring-boot:run
 
 # 3. 产生数据
 curl -X POST "http://localhost:8888/demo/orders/submit"
@@ -187,7 +187,7 @@ ADRs: [docs/adr/](docs/adr/)
 ### Run with Maven
 
 ```bash
-mvn spring-boot:run -pl xm-spring
+mvn spring-boot:run -pl ofs-app
 ```
 
 Default port: `8888`. Uses in-memory storage by default (no DB required).
@@ -237,16 +237,16 @@ curl -X POST "http://localhost:8888/order/{orderId}/submit-with-payment-saga?amo
 
 ```
 xm-java/
-├── xm-scenario/      # Domain & infrastructure: DDD, state machine, locks, transactions
-├── xm-spring/        # Spring Boot app: REST API, Seata, Redisson, config
+├── ofs-domain/      # Domain & infrastructure: DDD, state machine, locks, transactions
+├── ofs-app/        # Spring Boot app: REST API, Seata, Redisson, config
 ├── xm-base/          # Extras: design patterns, algorithms (standalone)
 └── docs/             # Architecture, ADRs
 ```
 
 | Module | Responsibility |
 |--------|----------------|
-| **xm-scenario** | Order aggregate, OrderRepository, TCC/Saga participants, LockPolicy, LocalMessageTxSupport, IdempotentMessageProcessor |
-| **xm-spring** | OrderController, Seata integration, Sentinel client decorators, OrderTimeoutScheduler |
+| **ofs-domain** | Order aggregate, OrderRepository, TCC/Saga participants, LockPolicy, LocalMessageTxSupport, IdempotentMessageProcessor |
+| **ofs-app** | OrderController, Seata integration, Sentinel client decorators, OrderTimeoutScheduler |
 | **xm-base** | Design patterns, algorithms, concurrency (optional) |
 
 ---
@@ -293,8 +293,8 @@ xm-java/
 - [Architecture](docs/architecture.md) — Layering, modules, data flow
 - [Outbox pipeline](docs/outbox-pipeline.md) — Local message table relay + idempotent consumer
 - [ADRs](docs/adr/) — Architecture decision records
-- [xm-scenario](xm-scenario/README.md) — Domain package structure
-- [xm-scenario Roadmap](xm-scenario/ROADMAP.md) — Implemented & planned
+- [ofs-domain](ofs-domain/README.md) — Domain package structure
+- [ofs-domain Roadmap](ofs-domain/ROADMAP.md) — Implemented & planned
 
 ---
 
@@ -302,9 +302,9 @@ xm-java/
 
 Required for `transaction=jdbc` or `saga=seata`:
 
-- `xm-scenario/src/main/resources/db/outbox_schema.sql`
-- `xm-scenario/src/main/resources/db/order_schema.sql`
-- `xm-spring/src/main/resources/db/saga_schema.sql`
+- `ofs-domain/src/main/resources/db/outbox_schema.sql`
+- `ofs-domain/src/main/resources/db/order_schema.sql`
+- `ofs-app/src/main/resources/db/saga_schema.sql`
 
 ---
 

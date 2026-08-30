@@ -5,8 +5,8 @@
     <modelVersion>4.0.0</modelVersion>
     <artifactId>xm-base</artifactId>
     <parent>
-        <artifactId>xmtest</artifactId>
-        <groupId>com.xm</groupId>
+        <artifactId>order-fulfillment</artifactId>
+        <groupId>com.ofs</groupId>
         <version>1.0-SNAPSHOT</version>
     </parent>
 

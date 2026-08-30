@@ -4,18 +4,18 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.xm</groupId>
-    <artifactId>xmtest</artifactId>
+    <groupId>com.ofs</groupId>
+    <artifactId>order-fulfillment</artifactId>
     <packaging>pom</packaging>
     <version>1.0-SNAPSHOT</version>
     <modules>
-        <module>xm-spring</module>
+        <module>ofs-app</module>
         <module>xm-base</module>
-        <module>xm-scenario</module>
+        <module>ofs-domain</module>
         <!-- AI 智能助手：独立 Spring Boot 3.4 + Spring AI 应用。
              仅在此聚合一起构建；它的 <parent> 是 spring-boot-starter-parent 3.4.5，
              不继承本 pom（3.2.4），所以版本互不影响。 -->
-        <module>xm-ai</module>
+        <module>ofs-ai</module>
     </modules>
 
     <parent>

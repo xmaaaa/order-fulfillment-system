@@ -1,0 +1,128 @@
+server:
+  port: 8888
+
+info:
+  app:
+    name: order-fulfillment
+    description: Reference architecture for order fulfillment
+
+spring:
+  application:
+    #项目名称必填，在注册中心唯一
+    #最好和之前域名规范、kubernetes service名等保持一致（会作为调用）
+    name: xm-service
+  kafka:
+    # 本地开发用 29092（宿主机 Listener），容器化部署通过环境变量覆盖为 kafka:9092
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      retries: 3
+      properties:
+        enable.idempotence: "true"
+        max.in.flight.requests.per.connection: "5"
+    consumer:
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      enable-auto-commit: false
+    listener:
+      ack-mode: record
+  datasource:
+    url: jdbc:mysql://localhost:3306/order-fulfillment?useSSL=false&serverTimezone=UTC&characterEncoding=utf8
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  cloud:
+    sentinel:
+      transport:
+        dashboard: localhost:8887   # Sentinel 控制台地址
+        port: 8719                  # 客户端与控制台通信端口
+
+redis:
+  enabled: false
+  address: "redis://localhost:6379"
+
+# Seata 配置。tcc=seata 时需 enabled=true 且启动 Seata Server；tcc=learning 时建议 enabled=false
+seata:
+  enabled: false
+  application-id: xm-service
+  tx-service-group: default_tx_group
+  service:
+    vgroup-mapping:
+      default_tx_group: default
+    grouplist:
+      default: 127.0.0.1:7091
+  config:
+    type: file
+  registry:
+    type: file
+
+# 订单场景：lock=memory|redisson|none；transaction=memory|jdbc|不配置；tcc=learning|seata；saga=learning
+xm:
+  scenario:
+    lock: memory
+    transaction: memory
+    tcc: learning
+    saga: learning
+    # 熔断：true 时用 Sentinel 装饰 PaymentClient/InventoryClient（与 Dashboard 联动）
+    circuit-breaker: false
+    # 订单超时：SUBMITTED 超时未支付自动取消
+    order-timeout:
+      enabled: false
+      scan-interval-ms: 60000   # 扫描间隔 ms
+      payment-timeout: 30m      # 待支付最长等待时间（Duration）
+    # Kafka：true 时 Outbox Relay 向 Kafka 发布事件，OrderEventConsumer 模拟下游消费
+    kafka:
+      enabled: false
+      retry:
+        attempts: 3          # 总尝试次数（含首次），失败后路由到 DLT
+        delay-ms: 1000       # 首次重试延迟（ms）
+        multiplier: 2.0      # 退避指数：1s → 2s → DLT
+    # Outbox：扫本地消息表 → 幂等消费（日志模拟下游），需 transaction=memory|jdbc
+    outbox-relay:
+      enabled: true
+      interval-ms: 5000
+
+# OpenTelemetry 链路追踪
+# 本地开发：docker compose -f docker-compose.observability.yml up -d 启动 Jaeger
+# 完整栈：docker compose up -d（Jaeger 内置）
+# traceId / spanId 自动注入 MDC，JSON 日志中可见
+management:
+  tracing:
+    enabled: ${MANAGEMENT_TRACING_ENABLED:false}   # 本地默认关闭，容器通过环境变量开启
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: ${MANAGEMENT_OTLP_TRACING_ENDPOINT:http://localhost:4318/v1/traces}
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  health:
+    db:
+      enabled: false
+    kafka:
+      enabled: false
+
+
+twilio:
+  account-sid: xxx
+  auth-token: xxx
+  api-key-sid: xxx
+  api-key-secret: xxx
+  phone-number: xxx
+
+sendgrid:
+  api-key: xxx
+  from-email: test@test.com
+  from-name: TeaTime Spa
+

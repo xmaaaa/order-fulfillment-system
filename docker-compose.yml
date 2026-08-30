@@ -6,7 +6,7 @@
 #
 #   【本地开发】应用在宿主机跑，基础设施全在 Docker
 #     docker compose up -d
-#     cd xm-spring && MANAGEMENT_TRACING_ENABLED=true mvn spring-boot:run
+#     cd ofs-app && MANAGEMENT_TRACING_ENABLED=true mvn spring-boot:run
 #
 #   【完整容器化】应用也跑在 Docker 里（CI / 演示 / 部署）
 #     docker compose --profile app up -d
@@ -147,8 +147,8 @@ services:
   # 监听日志文件变化，把新行发给 Elasticsearch
   # user: root 是必须的，否则无权读取挂载进来的宿主机文件
   # 挂载两个目录是因为不同启动方式日志路径不同：
-  #   ./logs           → 从项目根目录启动时（mvn -pl xm-spring spring-boot:run）
-  #   ./xm-spring/logs → 从 xm-spring 目录启动时（IntelliJ 默认工作目录）
+  #   ./logs           → 从项目根目录启动时（mvn -pl ofs-app spring-boot:run）
+  #   ./ofs-app/logs → 从 ofs-app 目录启动时（IntelliJ 默认工作目录）
   filebeat:
     image: elastic/filebeat:8.13.4
     container_name: filebeat
@@ -156,7 +156,7 @@ services:
     volumes:
       - ./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
       - ./logs:/var/log/app/root:ro
-      - ./xm-spring/logs:/var/log/app/spring:ro
+      - ./ofs-app/logs:/var/log/app/spring:ro
     command: filebeat -e --strict.perms=false
     depends_on:
       elasticsearch:
