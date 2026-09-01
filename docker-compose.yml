@@ -19,6 +19,7 @@
 #   Kibana      → http://localhost:5601    日志搜索
 #   ES REST API → http://localhost:9200    可直接 curl 查索引
 #   Kafka       → localhost:9092           消息队列
+#   Redis       → localhost:6379           缓存 + 分布式锁
 # ══════════════════════════════════════════════════════════════════════════════
 
 services:
@@ -59,6 +60,31 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
+    restart: unless-stopped
+
+  # ── Cache & Lock：Redis ───────────────────────────────────────────────────
+  # 两个用途：① 订单查询的 Cache-Aside 缓存  ② Redisson 分布式锁（缓存击穿时重建用）
+  # 应用侧开关：redis.enabled=true（宿主机跑用 REDIS_ADDRESS=redis://localhost:6379）
+  #
+  # 故意不挂数据卷：缓存本就该能随时丢，重启即空正好方便观察"冷启动全 miss → 回填 → 命中"
+  # 真要持久化（比如把 Redis 当存储用）再加 volume + --appendonly yes
+  redis:
+    image: redis:7.2-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    # maxmemory + allkeys-lru：内存打满时按 LRU 淘汰而不是报 OOM 拒写
+    # 这是把 Redis 当"缓存"用的正确姿势；当"存储"用才该配 noeviction
+    command: >
+      redis-server
+      --appendonly no
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
     restart: unless-stopped
 
   # ── Traces：Jaeger ────────────────────────────────────────────────────────
@@ -175,10 +201,14 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       jaeger:
         condition: service_started
     environment:
       - SERVER_PORT=8888
+      - REDIS_ENABLED=true
+      - REDIS_ADDRESS=redis://redis:6379              # 容器内用 Docker 服务名
       - OFS_SCENARIO_LOCK=memory
       - OFS_SCENARIO_TRANSACTION=memory
       - OFS_SCENARIO_TCC=learning
