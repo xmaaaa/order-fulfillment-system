@@ -11,6 +11,8 @@ import com.ofs.domain.order.application.command.LocalMessageOrderCommandService;
 import com.ofs.domain.order.application.command.LockedOrderCommandService;
 import com.ofs.domain.order.application.command.OrderCommandService;
 import com.ofs.domain.order.application.command.OrderCommandServiceImpl;
+import com.ofs.domain.order.application.query.OrderQueryService;
+import com.ofs.domain.order.application.query.OrderQueryServiceImpl;
 import com.ofs.domain.order.domain.model.OrderRepository;
 import com.ofs.domain.order.domain.service.OrderDomainService;
 import com.ofs.domain.order.infrastructure.repository.InMemoryOrderRepository;
@@ -66,6 +68,15 @@ public class OrderScenarioConfig {
     @Bean
     public IdempotencyKeyStore idempotencyKeyStore() {
         return new InMemoryIdempotencyKeyStore();
+    }
+
+    /**
+     * CQRS 读侧。此前 OrderQueryService 从未装配，GET 接口直接走写侧 OrderCommandService.getOrder()，
+     * 读写路径混在一起；这里补上装配，读路径独立出来，后续缓存装饰器才有地方挂。
+     */
+    @Bean
+    public OrderQueryService orderQueryService(OrderRepository orderRepository) {
+        return new OrderQueryServiceImpl(orderRepository);
     }
 
     // ---------- 锁：学习用（订单/库存/用户 不同 lease：30s/10s/5s） ----------
