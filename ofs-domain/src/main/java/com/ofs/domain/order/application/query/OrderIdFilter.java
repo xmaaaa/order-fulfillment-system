@@ -9,8 +9,8 @@ package com.ofs.domain.order.application.query;
  * 不存在，后果是真实订单被当成 404）。
  *
  * <p>由此推出一条运维前提：<b>所有已存在的订单 ID 都必须先进过滤器</b>。新单靠写侧
- * {@link com.ofs.domain.order.application.command.CacheEvictingOrderCommandService}
- * 在建单时实时登记；历史单必须在启用前全量预热。这就是本项目默认
+ * {@link com.ofs.domain.order.infrastructure.repository.CacheEvictingOrderRepository}
+ * 在建单事务提交后实时登记；历史单必须在启用前全量预热。这就是本项目默认
  * {@code ofs.scenario.order-cache.bloom-filter.enabled=false} 的原因——
  * 没预热就开等于给老订单判死刑。
  *
