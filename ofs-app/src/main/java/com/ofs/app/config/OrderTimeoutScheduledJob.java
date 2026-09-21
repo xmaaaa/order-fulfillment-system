@@ -6,7 +6,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * 定时扫描超时未支付订单；扫描间隔与 {@link OrderTimeoutProperties#getScanInterval()} 一致。
+ * 定时扫描超时未支付订单；扫描间隔与 {@link OrderTimeoutProperties#getScanIntervalMs()} 一致。
  */
 @Component
 @ConditionalOnProperty(name = "ofs.scenario.order-timeout.enabled", havingValue = "true")

@@ -159,6 +159,8 @@ See [ofs-domain/docs/ARCHITECTURE.md](ofs-domain/docs/ARCHITECTURE.md) for the f
 | **Lock at TCC entry** | LockPolicy wraps the orchestrator, not individual Try phases. Avoids redundant locking and keeps Try lightweight. |
 | **Anti-corruption layers** | PaymentClient/InventoryClient abstract external services. Swap Stub → Feign for real integration. |
 | **State machine in aggregate** | OrderState/OrderEvent + TransitionGuard keep transitions explicit and testable. |
+| **Cache invalidation: at the repository, after commit** | Two constraints must hold at once. *Coverage*: TCC/Saga/timeout-scheduler write straight through OrderDomainService, so the only choke point every write passes is `OrderRepository`. *Timing*: but the repository runs inside the transaction — evicting there publishes a side effect on an uncommitted fact. So it registers an `AfterCommitExecutor` callback instead. See [缓存-Cache-Aside](ofs-domain/docs/缓存-Cache-Aside.md) §5. |
+| **Delete cache, don't update it** | Updating duplicates the read-model projection on the write side (drift) and leaves dirty values under concurrent writes. Deleting is idempotent and self-healing. |
 
 > Formal ADRs are not written yet — the rationale above plus [ofs-domain/docs/](ofs-domain/docs/) is the current record.
 
@@ -269,6 +271,12 @@ order-fulfillment-system/
 | `order-timeout.enabled` | `true` / `false` | Auto-cancel SUBMITTED after payment timeout |
 | `order-timeout.scan-interval-ms` | number | How often to scan (ms) |
 | `order-timeout.payment-timeout` | Duration (e.g. `30m`) | Max wait in SUBMITTED before cancel |
+| `cache` | `none` / `memory` / `redis` | Order query cache (Cache-Aside). `redis` also needs `redis.enabled=true` |
+| `order-cache.ttl` | Duration (e.g. `5m`) | Cached value TTL |
+| `order-cache.absent-ttl` | Duration (`0` = off) | Null-value placeholder TTL (penetration guard) |
+| `order-cache.jitter` | Duration (`0` = off) | Random TTL jitter (avalanche guard) |
+| `order-cache.rebuild-lock` | `true` / `false` | Single-flight rebuild lock (breakdown guard) |
+| `order-cache.bloom-filter.enabled` | `true` / `false` | Bloom penetration guard. **Preheat existing order IDs before enabling** |
 
 ---
 
@@ -288,6 +296,11 @@ order-fulfillment-system/
 | Circuit Breaker | Sentinel (`paymentClient`, `inventoryClient` resources) |
 | Timeout Auto-Transition | OrderTimeoutScheduler |
 | CQRS Read Model | OrderQueryService |
+| Cache-Aside | CachedOrderQueryService (read) + CacheEvictingOrderRepository (write) |
+| After-Commit Side Effects | AfterCommitExecutor (Spring tx synchronization / immediate) |
+| Cache Penetration Guard | RedissonOrderIdFilter (Bloom) + null-value caching |
+| Cache Breakdown Guard | Single-flight rebuild lock + double-check |
+| Cache Avalanche Guard | Randomized TTL jitter |
 | Domain Events | DomainEventPublisher |
 
 ---
@@ -297,6 +310,7 @@ order-fulfillment-system/
 - [Architecture](ofs-domain/docs/ARCHITECTURE.md) — Layering, distributed transactions, lock strategies
 - [幂等-目的与思路](ofs-domain/docs/幂等-目的与思路.md) — Idempotency model behind the outbox consumer
 - [状态机-设计思想与模式](ofs-domain/docs/状态机-设计思想与模式.md) — State machine & guard design patterns
+- [缓存-Cache-Aside](ofs-domain/docs/缓存-Cache-Aside.md) — Cache-Aside design, penetration/breakdown/avalanche guards, consistency trade-offs
 - [ofs-domain](ofs-domain/README.md) — Domain package structure
 - [ofs-domain Roadmap](ofs-domain/ROADMAP.md) — Implemented & planned
 - [ofs-ai](ofs-ai/README.md) — AI assistant: Spring AI mechanics, RAG, agent, pitfalls
