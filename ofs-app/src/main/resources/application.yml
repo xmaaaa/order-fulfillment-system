@@ -66,6 +66,23 @@ ofs:
     transaction: memory
     tcc: learning
     saga: learning
+    # 订单查询缓存（Cache-Aside）：none=不缓存 | memory=JVM 内(单机/单测) | redis=Redisson(多机，需 redis.enabled=true)
+    cache: none
+    order-cache:
+      ttl: 5m                   # 正常值存活时间
+      absent-ttl: 30s           # 「不存在」占位存活时间（空值缓存，防穿透第二道）；0=关闭
+      jitter: 30s               # TTL 随机抖动上界，防雪崩（批量 key 同时过期打穿库）；0=关闭
+      rebuild-lock: true        # 防击穿：热点 key 失效时只放一个请求去重建
+      lock-wait: 200ms          # 抢重建锁最多等多久；等不到就降级直查库（可用性优先）
+      lock-lease: 3s            # 重建锁持有上限，须大于「查库+回填」最坏耗时
+      key-prefix: "ofs:order:view:"
+      bloom-filter:
+        # 防穿透第一道。默认关闭：启用前必须把已存在的订单 ID 全量预热进去，
+        # 否则历史订单会被布隆过滤器误判成不存在（假阴性不可接受）
+        enabled: false
+        key: "ofs:order:ids:bloom"
+        expected-insertions: 1000000   # 按「重建周期内的增量上限」配，不是当前订单量
+        false-probability: 0.01        # 改这个值要先删掉旧 key 才生效
     # 熔断：true 时用 Sentinel 装饰 PaymentClient/InventoryClient（与 Dashboard 联动）
     circuit-breaker: false
     # 订单超时：SUBMITTED 超时未支付自动取消
