@@ -11,17 +11,25 @@ import com.ofs.domain.order.application.command.LocalMessageOrderCommandService;
 import com.ofs.domain.order.application.command.LockedOrderCommandService;
 import com.ofs.domain.order.application.command.OrderCommandService;
 import com.ofs.domain.order.application.command.OrderCommandServiceImpl;
+import com.ofs.domain.order.application.query.CachedOrderQueryService;
+import com.ofs.domain.order.application.query.OrderCacheSettings;
+import com.ofs.domain.order.application.query.OrderCacheStats;
+import com.ofs.domain.order.application.query.OrderIdFilter;
 import com.ofs.domain.order.application.query.OrderQueryService;
 import com.ofs.domain.order.application.query.OrderQueryServiceImpl;
+import com.ofs.domain.order.application.query.OrderViewCache;
 import com.ofs.domain.order.domain.model.OrderRepository;
 import com.ofs.domain.order.domain.service.OrderDomainService;
+import com.ofs.domain.order.infrastructure.repository.CacheEvictingOrderRepository;
 import com.ofs.domain.order.infrastructure.repository.InMemoryOrderRepository;
 import com.ofs.domain.shared.idempotency.IdempotencyKeyStore;
 import com.ofs.domain.shared.idempotency.InMemoryIdempotencyKeyStore;
+import com.ofs.domain.shared.transaction.AfterCommitExecutor;
 import com.ofs.domain.transaction.localmessage.InMemoryLocalMessageTxSupport;
 import com.ofs.domain.transaction.localmessage.LocalMessageTxSupport;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -40,9 +48,23 @@ import javax.sql.DataSource;
 @Configuration
 public class OrderScenarioConfig {
 
+    /**
+     * 订单仓储。开缓存时套一层失效装饰器——<b>所有</b>写路径都收敛到 save/updateVersion，
+     * 挂这里才不会漏掉 TCC / Saga / 超时调度器那几条绕过 OrderCommandService 的路径；
+     * 而失效动作本身通过 {@link AfterCommitExecutor} 推迟到事务提交之后，不在事务内发布副作用。
+     * 详见 {@link CacheEvictingOrderRepository} 的类注释。
+     */
     @Bean
-    public OrderRepository orderRepository() {
-        return new InMemoryOrderRepository();
+    public OrderRepository orderRepository(@Autowired(required = false) OrderViewCache orderViewCache,
+                                           @Autowired(required = false) OrderCacheStats orderCacheStats,
+                                           @Autowired(required = false) OrderIdFilter orderIdFilter,
+                                           @Autowired(required = false) AfterCommitExecutor afterCommitExecutor) {
+        OrderRepository base = new InMemoryOrderRepository();
+        if (orderViewCache == null) {
+            return base;
+        }
+        return new CacheEvictingOrderRepository(
+                base, orderViewCache, orderCacheStats, orderIdFilter, afterCommitExecutor);
     }
 
     @Bean
@@ -50,6 +72,13 @@ public class OrderScenarioConfig {
         return new OrderDomainService(orderRepository);
     }
 
+    /**
+     * 写侧装饰器链，由内到外：Impl → 本地消息表 → 订单锁 → 幂等。
+     *
+     * <p>这里<b>没有</b>缓存失效层。失效统一由 {@link CacheEvictingOrderRepository} 负责
+     * （见 orderRepository bean）：所有写路径都收敛到仓储，挂那里才不会漏掉 TCC/Saga/超时调度器；
+     * 而它通过 {@code AfterCommitExecutor} 把失效推迟到事务提交后，时序也是对的。
+     */
     @Bean
     public OrderCommandService orderCommandService(OrderDomainService orderDomainService,
                                                    @Autowired(required = false) LockPolicy lockPolicy,
@@ -72,11 +101,25 @@ public class OrderScenarioConfig {
 
     /**
      * CQRS 读侧。此前 OrderQueryService 从未装配，GET 接口直接走写侧 OrderCommandService.getOrder()，
-     * 读写路径混在一起；这里补上装配，读路径独立出来，后续缓存装饰器才有地方挂。
+     * 读写路径混在一起；这里补上装配，读路径独立出来，缓存装饰器才有地方挂。
+     *
+     * <p>{@code ofs.scenario.cache=none}（默认）时 OrderViewCache 不存在，这里返回裸的
+     * OrderQueryServiceImpl，行为与加缓存之前完全一致。缓存实现的装配见 {@link OrderCacheConfig}。
      */
     @Bean
-    public OrderQueryService orderQueryService(OrderRepository orderRepository) {
-        return new OrderQueryServiceImpl(orderRepository);
+    public OrderQueryService orderQueryService(OrderRepository orderRepository,
+                                               @Autowired(required = false) OrderViewCache orderViewCache,
+                                               @Autowired(required = false) OrderCacheSettings orderCacheSettings,
+                                               @Autowired(required = false) OrderCacheStats orderCacheStats,
+                                               @Autowired(required = false) OrderIdFilter orderIdFilter,
+                                               @Autowired(required = false)
+                                               @Qualifier("orderCacheRebuildLock") LockStrategy rebuildLock) {
+        OrderQueryService base = new OrderQueryServiceImpl(orderRepository);
+        if (orderViewCache == null) {
+            return base;
+        }
+        return new CachedOrderQueryService(
+                base, orderViewCache, orderCacheSettings, orderCacheStats, orderIdFilter, rebuildLock);
     }
 
     // ---------- 锁：学习用（订单/库存/用户 不同 lease：30s/10s/5s） ----------
