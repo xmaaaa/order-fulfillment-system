@@ -120,7 +120,21 @@ for i in {1..30}; do curl -s -X POST "http://localhost:8888/demo/orders/submit?f
 
 ## Outbox pipeline
 
-When `ofs.scenario.transaction` is `memory` or `jdbc`, pending outbox rows are relayed on a schedule: scan → idempotent consumer (log) → `markSent`. See [幂等-目的与思路](ofs-domain/docs/幂等-目的与思路.md) for the idempotency model behind the consumer. Toggle with `ofs.scenario.outbox-relay.enabled`.
+Every order state transition writes its event into the local message table **in the same transaction as the business write**. A scheduled relay then drains it: scan → outbound handler → `markSent`. Failure to send leaves the row pending, so delivery is at-least-once and downstream must be idempotent — see [幂等-目的与思路](ofs-domain/docs/幂等-目的与思路.md).
+
+| Transition | Topic | Event type | Payload extras |
+|---|---|---|---|
+| `createDraft` | `order.created` | `OrderCreated` | — |
+| `submit` | `order.submitted` | `OrderSubmitted` | — |
+| `markPaid` | `order.paid` | `OrderPaid` | `paymentId` |
+| `ship` | `order.shipped` | `OrderShipped` | — |
+| `cancel` | `order.cancelled` | `OrderCancelled` | — |
+
+**One topic per event type**, so a downstream subscribes only to what it needs (the notification consumer takes `order.paid` alone). The trade-off: no ordering guarantee *across* topics — a consumer that needs "paid before shipped" must check order state, not arrival order. *Within* a topic ordering holds: the outbox row carries the `orderId` as `aggregateId`, and Kafka partitions on it, so one order's messages always land on the same partition.
+
+Outbound handler is picked at startup: `KafkaOutboundHandler` when `ofs.scenario.kafka.enabled=true`, otherwise an in-process logging consumer. Toggle the relay with `ofs.scenario.outbox-relay.enabled`.
+
+**Coverage caveat:** these events are produced by a decorator on `OrderCommandService`, so writes that go straight to `OrderDomainService` (TCC, Saga, `OrderTimeoutScheduler`) produce **no** events. Same shape of problem cache invalidation hit — fixed there by sinking it to the repository. Doing the same for events means letting the aggregate emit them; see the evolution table in [缓存-Cache-Aside](ofs-domain/docs/缓存-Cache-Aside.md) §6.
 
 ---
 
@@ -291,7 +305,7 @@ order-fulfillment-system/
 | Distributed Lock | RedissonLockStrategy |
 | TCC | SimpleTccCoordinator / Seata |
 | Saga | SimpleSagaOrchestrator / Seata JSON state machine |
-| Local Message Table | InMemory / JdbcLocalMessageTxSupport |
+| Local Message Table | InMemory / JdbcLocalMessageTxSupport — all 5 transitions, one topic each |
 | Idempotent Consumption | IdempotentMessageProcessor |
 | Circuit Breaker | Sentinel (`paymentClient`, `inventoryClient` resources) |
 | Timeout Auto-Transition | OrderTimeoutScheduler |
