@@ -81,12 +81,14 @@ public class OrderScenarioConfig {
      */
     @Bean
     public OrderCommandService orderCommandService(OrderDomainService orderDomainService,
+                                                   OrderRepository orderRepository,
                                                    @Autowired(required = false) LockPolicy lockPolicy,
                                                    IdempotencyKeyStore idempotencyKeyStore,
                                                    @Autowired(required = false) LocalMessageTxSupport localMessageTxSupport) {
         OrderCommandService base = new OrderCommandServiceImpl(orderDomainService);
         if (localMessageTxSupport != null) {
-            base = new LocalMessageOrderCommandService(base, localMessageTxSupport);
+            // 仓储传进去只为在事务内把刚写完的订单读回来，取 userId/version 放进事件
+            base = new LocalMessageOrderCommandService(base, localMessageTxSupport, orderRepository);
         }
         if (lockPolicy != null) {
             base = new LockedOrderCommandService(base, lockPolicy);
