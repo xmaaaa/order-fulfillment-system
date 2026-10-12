@@ -9,7 +9,12 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 /**
- * 本地消息表 JDBC 实现：业务与 outbox 同事务，需 outbox_message 表。
+ * 本地消息表 JDBC 实现：业务与 outbox 同事务，需 outbox_message 表（见 {@code db/outbox_schema.sql}）。
+ *
+ * <p>写入的 aggregate_id / event_type 取自 {@link OutboxRecord}，不能写死——表上有
+ * {@code UNIQUE KEY uk_aggregate_event (aggregate_id, event_type)}，写死意味着整张表只能存下一行，
+ * 第二条消息就会撞唯一键。填真实值之后这个索引才回到它本来的用途：
+ * <b>同一订单的同一事件只入队一次</b>。
  */
 public class JdbcLocalMessageTxSupport implements LocalMessageTxSupport {
 
@@ -25,18 +30,21 @@ public class JdbcLocalMessageTxSupport implements LocalMessageTxSupport {
     }
 
     @Override
-    public void executeInLocalTx(Runnable businessAction, Supplier<Object> messageSupplier, String topic) {
+    public void executeInLocalTx(Runnable businessAction, Supplier<OutboxRecord> recordSupplier) {
         transactionTemplate.executeWithoutResult(status -> {
             businessAction.run();
-            Object message = messageSupplier.get();
-            insertMessage(message == null ? "" : message.toString(), topic);
+            OutboxRecord record = recordSupplier.get();
+            if (record != null) {
+                insertMessage(record);
+            }
         });
     }
 
-    private void insertMessage(String payload, String topic) {
+    private void insertMessage(OutboxRecord record) {
         jdbc.update(
                 "INSERT INTO outbox_message (aggregate_id, event_type, payload, topic, status, created_at) VALUES (?,?,?,?,?,?)",
-                "order", "OrderEvent", payload, topic, STATUS_PENDING, System.currentTimeMillis()
+                record.aggregateId(), record.eventType(), record.payload(), record.topic(),
+                STATUS_PENDING, System.currentTimeMillis()
         );
     }
 
@@ -49,12 +57,15 @@ public class JdbcLocalMessageTxSupport implements LocalMessageTxSupport {
     @Override
     public List<PendingMessage> scanPending(int limit) {
         List<Map<String, Object>> rows = jdbc.queryForList(
-                "SELECT id, payload, topic, created_at FROM outbox_message WHERE status = ? ORDER BY id LIMIT ?",
+                "SELECT id, aggregate_id, event_type, payload, topic, created_at "
+                        + "FROM outbox_message WHERE status = ? ORDER BY id LIMIT ?",
                 STATUS_PENDING, limit
         );
         return rows.stream()
                 .map(r -> new PendingMessage(
                         ((Number) r.get("id")).longValue(),
+                        (String) r.get("aggregate_id"),
+                        (String) r.get("event_type"),
                         (String) r.get("payload"),
                         (String) r.get("topic"),
                         ((Number) r.get("created_at")).longValue()))
