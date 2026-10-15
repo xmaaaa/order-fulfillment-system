@@ -13,10 +13,14 @@ import org.springframework.retry.annotation.Backoff;
 import org.springframework.stereotype.Component;
 
 /**
- * 模拟两个独立下游服务通过不同 Consumer Group 订阅同一 Topic：
+ * 模拟独立下游服务通过不同 Consumer Group 订阅订单事件：
  *
- *  fulfillment-group  → 履约服务：按仓库路由发货
- *  notification-group → 通知服务：发送订单确认邮件/短信
+ *  order.created → fulfillment-group  → 履约服务：按仓库路由发货
+ *  order.created → notification-group → 通知服务：发送订单确认邮件/短信
+ *  order.paid    → payment-notification-group → 支付成功通知
+ *
+ * 同一 Topic 的两个 Group 演示扇出；order.paid 演示按事件类型分 topic 后，
+ * 下游只订自己关心的那个，不用收下全部再过滤。
  *
  * 每个 Group 独立维护消费进度，互不干扰，天然实现扇出（fan-out）。
  * 各 Group 内置幂等处理器，防止网络重试导致重复消费。
@@ -35,6 +39,8 @@ public class OrderEventConsumer {
     private final IdempotentMessageProcessor fulfillmentProcessor =
             new IdempotentMessageProcessor(new InMemoryIdempotencyKeyStore());
     private final IdempotentMessageProcessor notificationProcessor =
+            new IdempotentMessageProcessor(new InMemoryIdempotencyKeyStore());
+    private final IdempotentMessageProcessor paidProcessor =
             new IdempotentMessageProcessor(new InMemoryIdempotencyKeyStore());
 
     @RetryableTopic(
@@ -88,6 +94,40 @@ public class OrderEventConsumer {
         });
         if (!result.processed()) {
             log.debug("[notification] duplicate skipped key={}", record.key());
+        }
+    }
+
+    /**
+     * 消费 order.paid。这是 Tier3「通知系统」的接入点：真实实现应在这里调短信/邮件网关，
+     * 当前只打日志，把链路跑通。
+     *
+     * <p>幂等键用 record.key()（即 orderId）：Kafka 至少一次投递，重试/重平衡都可能重复送达，
+     * 而「同一订单的支付成功通知」只该发一次。
+     */
+    @RetryableTopic(
+            attempts = "${ofs.scenario.kafka.retry.attempts:3}",
+            backoff = @Backoff(
+                    delayExpression = "${ofs.scenario.kafka.retry.delay-ms:1000}",
+                    multiplierExpression = "${ofs.scenario.kafka.retry.multiplier:2.0}"
+            ),
+            topicSuffixingStrategy = TopicSuffixingStrategy.SUFFIX_WITH_INDEX_VALUE,
+            dltTopicSuffix = "-dlt",
+            autoCreateTopics = "true"
+    )
+    @KafkaListener(
+            topics = "order.paid",
+            groupId = "payment-notification-group",
+            id = "payment-notification-listener",
+            concurrency = "3"
+    )
+    public void onOrderPaid(ConsumerRecord<String, String> record) {
+        var result = paidProcessor.process(record.key(), record.value(), payload -> {
+            log.info("[notification] order.paid → sending payment receipt | partition={} offset={} payload={}",
+                    record.partition(), record.offset(), payload);
+            return "notified";
+        });
+        if (!result.processed()) {
+            log.debug("[notification] duplicate order.paid skipped key={}", record.key());
         }
     }
 }
