@@ -11,7 +11,8 @@ class OutboxRelayRunnerTest {
     @Test
     void relaysPendingAndMarksSent() {
         var tx = new InMemoryLocalMessageTxSupport();
-        tx.executeInLocalTx(() -> {}, () -> "payload-a", "order.created");
+        tx.executeInLocalTx(() -> {}, () -> new LocalMessageTxSupport.OutboxRecord(
+                "ORD-1", "OrderCreated", "payload-a", "order.created"));
 
         AtomicInteger deliveries = new AtomicInteger();
         var runner = new OutboxRelayRunner(tx, m -> deliveries.incrementAndGet());
@@ -24,7 +25,8 @@ class OutboxRelayRunnerTest {
     @Test
     void doesNotMarkSentWhenHandlerFails() {
         var tx = new InMemoryLocalMessageTxSupport();
-        tx.executeInLocalTx(() -> {}, () -> "x", "t");
+        tx.executeInLocalTx(() -> {}, () -> new LocalMessageTxSupport.OutboxRecord(
+                "ORD-1", "OrderCreated", "x", "t"));
 
         var runner = new OutboxRelayRunner(tx, m -> {
             throw new IllegalStateException("boom");
