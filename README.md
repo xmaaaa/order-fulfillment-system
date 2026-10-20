@@ -130,7 +130,33 @@ Every order state transition writes its event into the local message table **in 
 | `ship` | `order.shipped` | `OrderShipped` | — |
 | `cancel` | `order.cancelled` | `OrderCancelled` | — |
 
-**One topic per event type**, so a downstream subscribes only to what it needs (the notification consumer takes `order.paid` alone). The trade-off: no ordering guarantee *across* topics — a consumer that needs "paid before shipped" must check order state, not arrival order. *Within* a topic ordering holds: the outbox row carries the `orderId` as `aggregateId`, and Kafka partitions on it, so one order's messages always land on the same partition.
+Payload (schema v1):
+
+```json
+{
+  "schemaVersion": 1,
+  "eventId": "evt-<uuid>",
+  "eventType": "OrderPaid",
+  "orderId": "ORD-<uuid>",
+  "userId": "user1",
+  "version": 2,
+  "occurredAt": "2026-10-07T...Z",
+  "paymentId": "PAY-001"
+}
+```
+
+- `version` is the aggregate's optimistic-lock version **after** the transition. A state-replicating consumer (read model, ES sink) can drop anything older than what it has already applied, which beats relying on broker ordering — it survives reordering, duplicates and consumer restarts alike. It does **not** license skipping events: a reactive consumer still owes the `OrderPaid` SMS even if `OrderShipped` arrived first.
+- `userId` saves the notification path a round-trip back to the order.
+- `schemaVersion` exists because message format is the hardest thing in the system to change: producer and consumers deploy independently, the topic still holds old-format messages, and already-published messages don't roll back with your code. Rule is **additive only** — adding optional fields is safe, renaming/removing/retyping breaks old consumers, and silently changing a field's *meaning* is the one nothing can catch. Breaking changes go to a new topic with a dual-write window.
+- `eventId` is per-delivery and is **not** a dedup key; dedup on `orderId + eventType` (which is also the outbox table's unique index).
+
+**One topic per event type**, so a downstream subscribes only to what it needs (the notification consumer takes `order.paid` alone).
+
+**On ordering, precisely.** Kafka orders messages *within a partition*, never across a topic — these topics have 3 partitions each. Keying on `orderId` (carried as the outbox row's `aggregateId`) puts one order's messages on one partition, so *that order's* messages are ordered relative to each other. Two caveats on top:
+
+- With one topic per event type, each order produces **at most one message per topic**, so there is currently nothing to order within a topic. The keying is about getting the semantics right for when that stops being true (a consolidated `order.events` topic, or repeatable events like refunds), not about fixing a live bug.
+- The ordering that *would* matter here — "paid before shipped" — is **across** topics, which Kafka does not guarantee at all. A consumer needing that must check order state, not arrival order.
+- `@RetryableTopic` breaks ordering even within a partition: a failed message is re-delivered later via a retry topic while subsequent messages proceed. That is the price of non-blocking retry, and it is fine here precisely because of the first bullet.
 
 Outbound handler is picked at startup: `KafkaOutboundHandler` when `ofs.scenario.kafka.enabled=true`, otherwise an in-process logging consumer. Toggle the relay with `ofs.scenario.outbox-relay.enabled`.
 
