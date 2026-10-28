@@ -3,7 +3,7 @@
 一个独立的 Spring Boot 应用，用 **Spring AI** 把大模型接入订单系统，演示从"聊天机器人"到"生产级 agent"的完整能力栈：
 对话 → 工具调用(Function Calling) → RAG 知识问答 → 多轮记忆 → ReAct 多步 agent → 流式输出 → 人工确认(human-in-the-loop)。
 
-> 定位：面向学习/面试展示。核心四件套（Prompt / Tool / RAG / Memory）已具备；生产级增强（评估、护栏、持久化确认、可观测）见文末"未做/待补"。
+> 定位：面向学习/面试展示。核心四件套（Prompt / Tool / RAG / Memory）已具备，知识库检索已作为工具挂进 `/chat`。生产级增强（评估、护栏、持久化确认、可观测）见文末"未做/待补"。
 
 ---
 
@@ -38,9 +38,9 @@ cd ofs-ai && mvn spring-boot:run
 
 | 端点 | 能力 | 依赖订单系统? |
 |---|---|---|
-| `GET /chat?message=&conversationId=` | 对话 + 工具调用 + 多轮记忆 + agent 多步 | 工具类请求需要 |
+| `GET /chat?message=&conversationId=` | 对话 + 订单工具 + 知识库检索 + 多轮记忆 + agent 多步 | 订单类请求需要 |
 | `GET /chat/stream?message=&conversationId=` | 同上，**流式**输出(SSE 打字机效果) | 同上 |
-| `GET /rag?question=` | RAG 知识问答（独立，未接入 chat，见"待补"） | 否 |
+| `GET /rag?question=` | 手写 RAG（检索→拼提示词→生成），用来对照 agent 自主检索 | 否 |
 | `POST /confirm?actionId=` | 人工确认敏感操作 | 是 |
 | `GET /agent/manual?message=` | 演示框架层拦截工具调用（自写 ReAct 循环） | 是 |
 
@@ -78,15 +78,17 @@ loop:
 - `.advisors(a -> a.param(ChatMemory.CONVERSATION_ID, id))` = 指定这次用哪个 key。
 - **本质**：每次把历史重新发一遍，不是模型真记住了。
 
-### 3.4 RAG：本质是"往提示词注入检索到的上下文"
-`RagController` 手写三步，看得见全过程：
+### 3.4 RAG：手写三步，和 agent 自己决定何时检索
+`RagController`（`/rag`）把三步写死，每次提问都检索：
 1. **检索**：`vectorStore.similaritySearch(query, topK=3)` —— 问题也向量化，找语义最近的知识。
 2. **增强**：把命中知识拼进 prompt（"【已知资料】…只根据资料回答，没有就说不知道"）。
 3. **生成**：交给 DeepSeek。
 > 模型并不知道有向量库存在，它只看到"被塞了资料的提示词"。
 
+`KnowledgeTools.searchKnowledge` 把同一次检索包成 `@Tool`，挂到 `/chat` 和 `/agent/manual`。模型自己决定要不要查：政策问题先检索，查订单就只调订单工具。返回值是带编号的原文片段，系统提示词要求引用原句。
+
 ### 3.5 Human-in-the-loop：两种拦截层次
-- **应用层**（`PendingActionStore` + `/confirm`）：敏感工具(支付/发货/取消)不直接执行，登记待确认项返回 `actionId`，人调 `/confirm` 才执行。安全操作(查/下单/提交)直接执行。
+- **应用层**（`PendingActionStore` + `/confirm`）：敏感工具(支付/发货/取消)不直接执行，只登记动作数据（`action` / `orderId` / `paymentId`，不含闭包）并返回 `actionId`。人调 `/confirm` 时先 `GET /order/{id}` 核对状态（支付要 `SUBMITTED`，发货要 `PAID`，取消要发货前），符合才 POST。同一 `actionId` 只能确认一次，10 分钟过期。查状态失败时保留待确认项，方便重试。安全操作(查/下单/提交)直接执行。
 - **框架层**（`/agent/manual`，`internalToolExecutionEnabled(false)`）：关闭自动执行，自写循环，模型每次"想调工具"都交回代码 → 可插入审批/权限/参数改写/拒绝。比应用层更底层通用。
 
 ### 3.6 流式输出
@@ -99,8 +101,8 @@ loop:
 | 手段 | 作用 | 本项目 |
 |---|---|---|
 | System Prompt | 设定角色/规则/工作方式 | ✅ agent 提示词 |
-| Tool / Function Calling | 调你的代码/API | ✅ OrderTools |
-| RAG | 检索知识注入提示词 | ✅ /rag |
+| Tool / Function Calling | 调你的代码/API | ✅ OrderTools + KnowledgeTools |
+| RAG | 检索知识注入提示词 | ✅ `/rag` 手写；`/chat` 由 agent 调 `searchKnowledge` |
 | Memory | 多轮上下文 | ✅ ChatMemory |
 | Structured Output | 强制 JSON schema 输出 | ⬜ |
 | **MCP** | 工具/数据的**跨进程标准协议**(USB 接口式)：Tools/Resources/Prompts | ⬜ 接现成工具或对外开放能力时才需要 |
@@ -120,8 +122,7 @@ loop:
 
 ## 6. 未做 / 待补（生产级差距）
 
-- **RAG 未接入 agent**：`/rag` 和 `/chat` 割裂。应做 **agentic RAG**——把检索包成一个 `@Tool searchKnowledge(query)`，让 agent 自主决定何时查知识库，统一到 `/chat` 入口。
-- **确认存内存**：重启丢失、多副本失效、无过期、无鉴权、confirm 时不复检业务状态 → 生产应存 Redis/DB + TTL + 权限 + 执行前复检（可复用主系统 TCC/状态机）。
+- **确认仍在内存**：动作已是可序列化数据，并有 10 分钟 TTL 和执行前状态复检。重启丢失、多副本失效、无鉴权仍在 → 生产换 Redis/DB + 权限校验，接口（`propose` / `peek` / `take`）不用改。
 - **RAG 工程化**：内存库 → pgvector/Redis；加分块策略、混合检索(向量+BM25)+rerank、按权限过滤。
 - **记忆分层**：短期窗口 + 长期(持久化用户画像) + 超长对话摘要压缩。
 - **评估(Eval)**：工具调用正确率/幻觉率，LLM-as-judge，上线前必备。
