@@ -15,15 +15,15 @@ public class ConfirmController {
 
     private static final Logger log = LoggerFactory.getLogger(ConfirmController.class);
 
-    private final PendingActionStore pendingStore;
+    private final OrderTools orderTools;
 
-    public ConfirmController(PendingActionStore pendingStore) {
-        this.pendingStore = pendingStore;
+    public ConfirmController(OrderTools orderTools) {
+        this.orderTools = orderTools;
     }
 
     @PostMapping("/confirm")
     public String confirm(@RequestParam String actionId) {
         log.info("✅ [人工确认] 执行 actionId={}", actionId);
-        return pendingStore.confirm(actionId);
+        return orderTools.confirm(actionId);
     }
 }
