@@ -30,13 +30,16 @@ public class ManualAgentController {
     private final ChatModel chatModel;                  // 底层模型（DeepSeek），比 ChatClient 更贴近协议
     private final ToolCallingManager toolCallingManager; // 负责真正执行工具调用的组件
     private final OrderTools orderTools;
+    private final KnowledgeTools knowledgeTools;
 
     public ManualAgentController(ChatModel chatModel,
                                  ToolCallingManager toolCallingManager,
-                                 OrderTools orderTools) {
+                                 OrderTools orderTools,
+                                 KnowledgeTools knowledgeTools) {
         this.chatModel = chatModel;
         this.toolCallingManager = toolCallingManager;
         this.orderTools = orderTools;
+        this.knowledgeTools = knowledgeTools;
     }
 
     @GetMapping("/agent/manual")
@@ -44,7 +47,7 @@ public class ManualAgentController {
 
         // ★ 关键：internalToolExecutionEnabled(false) → 框架不自动执行工具，把控制权交回我们
         ToolCallingChatOptions options = ToolCallingChatOptions.builder()
-                .toolCallbacks(ToolCallbacks.from(orderTools))
+                .toolCallbacks(ToolCallbacks.from(orderTools, knowledgeTools))
                 .internalToolExecutionEnabled(false)
                 .build();
 
