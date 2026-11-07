@@ -21,10 +21,11 @@ public class ChatController {
 
     private final ChatClient chatClient;
     private final OrderTools orderTools;
+    private final KnowledgeTools knowledgeTools;
 
     // Agent 系统提示词：定义角色 + ReAct 式多步工作方式。这是"聊天机器人→agent"的关键。
     private static final String AGENT_SYSTEM_PROMPT = """
-            你是订单运营智能助手，可以调用工具查询和操作订单系统。
+            你是订单运营智能助手，可以调用工具查询和操作订单系统，也可以检索订单政策知识库。
 
             工作方式（重要）：
             1. 先理解用户意图。若任务需要多个步骤，请规划出合理顺序，并【逐步调用工具】完成。
@@ -32,16 +33,21 @@ public class ChatController {
             2. 每一步都要【基于上一步工具返回的真实结果】再决定下一步，绝不臆造订单号或结果。
             3. 若某步工具返回失败，分析原因（如订单状态不满足），据实告知用户，不要强行继续。
             4. 涉及支付、发货、取消等写操作时保持谨慎、按业务状态顺序执行。
-            5. 全部完成后，用简洁中文总结你【执行了哪几步、每步结果如何】。
+            5. 涉及退款政策、配送时效、支付超时、发票、订单状态含义时，先调用 searchKnowledge。
+               只根据工具返回的资料原文回答；资料里没有就说暂时没有相关信息，不要编造，也不要用订单工具去猜政策。
+               回答时引用资料原句。
+            6. 全部完成后，用简洁中文总结你【执行了哪几步、每步结果如何】。
             """;
 
     // 构建 ChatClient 时挂上"记忆顾问"：它会自动把该会话的历史消息拼进每次请求，并把新问答存回记忆。
-    public ChatController(ChatClient.Builder builder, OrderTools orderTools, ChatMemory chatMemory) {
+    public ChatController(ChatClient.Builder builder, OrderTools orderTools, KnowledgeTools knowledgeTools,
+                          ChatMemory chatMemory) {
         this.chatClient = builder
                 .defaultSystem(AGENT_SYSTEM_PROMPT)   // ★ 所有请求都带上 agent 人格与工作方式
                 .defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build())
                 .build();
         this.orderTools = orderTools;
+        this.knowledgeTools = knowledgeTools;
     }
 
     /**
@@ -53,7 +59,7 @@ public class ChatController {
                        @RequestParam(defaultValue = "default") String conversationId) {
         return chatClient.prompt()   // 开始构建一次对话请求
                 .user(message)        // 用户说的话
-                .tools(orderTools)     // ★ 把订单工具交给模型；它会自行决定是否调用其中的 @Tool 方法
+                .tools(orderTools, knowledgeTools)  // ★ 订单工具 + 知识库检索；模型自行决定调用哪一个
                 // ★ 指定会话 ID → 记忆顾问按此 id 存取历史，实现多轮上下文
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
                 .call()               // 同步调用 DeepSeek（含"模型请求调用→执行→回填→再生成"的完整来回）
@@ -70,7 +76,7 @@ public class ChatController {
                                    @RequestParam(defaultValue = "default") String conversationId) {
         return chatClient.prompt()
                 .user(message)
-                .tools(orderTools)
+                .tools(orderTools, knowledgeTools)
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
                 .stream()             // ★ 流式：返回 Flux<String>，边生成边推送
                 .content();
