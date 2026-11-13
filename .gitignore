@@ -1,4 +1,7 @@
 ### Java template
+# Local VS Code workspace settings
+.vscode/
+
 # Compiled class file
 *.class
 
