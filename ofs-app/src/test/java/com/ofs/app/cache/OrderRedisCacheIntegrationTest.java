@@ -31,7 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 这里测的是只有真 Redis 才暴露的部分：Jackson 序列化 OrderView 能不能来回、
  * TTL 有没有真的设上、「不存在」占位长什么样、布隆过滤器短路是否生效。
  */
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest(classes = OfsAppApplication.class, properties = {
         "management.otlp.tracing.endpoint=",
         "ofs.scenario.outbox-relay.enabled=false",
