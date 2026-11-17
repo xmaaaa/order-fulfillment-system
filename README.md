@@ -297,6 +297,23 @@ order-fulfillment-system/
 
 ---
 
+## Tests
+
+```bash
+# 无需 Docker、Kafka、Redis、MySQL 或模型 API key：单元测试 + 内存实现的 REST/Outbox/缓存测试
+mvn verify
+
+# 需要 Docker：额外运行真实 Kafka（含 DLT）和 Redis 的 Testcontainers 测试
+mvn verify -Pintegration-tests
+```
+
+容器测试使用 JUnit `integration` 标签，默认由 Surefire 排除；开启 profile 后由 Failsafe
+在 integration-test/verify 阶段执行。显式开启后若 Docker 不可用会失败，避免误报通过。
+首次运行需下载容器镜像。普通测试的配置不会加载 Kafka 测试专用监听器。
+容器测试默认使用 Docker API 1.44（Docker Engine 25+），避免新版 Docker 拒绝旧客户端的
+API 1.32；需要兼容其他 Docker 版本时可用 `-Ddocker.api.version=版本号` 覆盖。
+CI 分别运行默认构建和容器测试任务。
+
 ## Configuration
 
 `ofs.scenario` in `application.yml`:
