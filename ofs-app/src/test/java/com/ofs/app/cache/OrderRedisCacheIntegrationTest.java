@@ -3,6 +3,7 @@ package com.ofs.app.cache;
 import com.ofs.app.web.OfsAppApplication;
 import com.ofs.domain.order.application.query.OrderCacheStats;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 import org.redisson.api.RedissonClient;
 import org.redisson.client.codec.StringCodec;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,6 +11,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.GenericContainer;
@@ -31,7 +33,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 这里测的是只有真 Redis 才暴露的部分：Jackson 序列化 OrderView 能不能来回、
  * TTL 有没有真的设上、「不存在」占位长什么样、布隆过滤器短路是否生效。
  */
-@Testcontainers(disabledWithoutDocker = true)
+@Tag("integration")
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+@Testcontainers
 @SpringBootTest(classes = OfsAppApplication.class, properties = {
         "management.otlp.tracing.endpoint=",
         "ofs.scenario.outbox-relay.enabled=false",
