@@ -5,6 +5,8 @@ import com.ofs.app.web.OfsAppApplication;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
+import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.boot.test.context.SpringBootTest;
 
 /**
@@ -23,6 +25,16 @@ public class MainTest {
 
     @Autowired
     private TestService testService;
+
+    @Autowired
+    private ApplicationContext context;
+
+    @Test
+    void defaultContextDoesNotLoadKafkaTestListeners() {
+        context.getBeansOfType(KafkaListenerEndpointRegistry.class).values().forEach(registry ->
+                Assertions.assertTrue(registry.getListenerContainers().isEmpty(),
+                        "Kafka is disabled: test listener configurations must not leak into this context"));
+    }
 
     @Test
     public void test() {
