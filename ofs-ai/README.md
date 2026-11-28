@@ -41,7 +41,9 @@ cd ofs-ai && mvn spring-boot:run
 | `GET /chat?message=&conversationId=` | 对话 + 订单工具 + 知识库检索 + 多轮记忆 + agent 多步 | 订单类请求需要 |
 | `GET /chat/stream?message=&conversationId=` | 同上，**流式**输出(SSE 打字机效果) | 同上 |
 | `GET /rag?question=` | 手写 RAG（检索→拼提示词→生成），用来对照 agent 自主检索 | 否 |
-| `POST /confirm?actionId=` | 人工确认敏感操作 | 是 |
+| `POST /confirm?actionId=` | 旧版支付/发货人工确认（内存） | 是 |
+| `POST /agent/tasks`、`GET /agent/tasks/{id}` | 创建/查看持久化售后任务，需要 X-Agent-Key | 是 |
+| `POST /agent/tasks/{id}/approve`、`resume`、`withdraw`、`replan` | 人工审批、继续执行、撤回、重新规划，需要 X-Agent-Key | 是 |
 | `GET /agent/manual?message=` | 演示框架层拦截工具调用（自写 ReAct 循环） | 是 |
 
 ---
@@ -129,3 +131,82 @@ loop:
 - **护栏(Guardrails)**：输入输出安全、PII 脱敏、越狱防护。
 - **可观测/成本**：追踪每步 prompt/token/延迟/费用(OpenTelemetry GenAI/Langfuse)，语义缓存、模型路由。
 - **部署**：打镜像接入 K8s（复用 `deploy/` 那套），key 改用环境变量/Secret 注入、去掉默认 local profile。
+
+## 7. 可恢复售后 Agent：第一条可执行业务链
+
+本版先实现 **DRAFT/SUBMITTED 未支付订单取消**。PAID 转人工退款，SHIPPED 转人工退货：
+当前订单系统缺少可查询结果的退款/退货接口，因此任务绝不把取消状态当作退款成功。
+也不宣称已释放库存或已发送通知。这是可恢复执行器的第一条业务切片。
+
+模型通过 `proposeAfterSales(orderId)` 提案、`queryAfterSales(taskId)` 查询。
+`cancelOrder` 已从模型工具列表移除。审批、恢复执行、撤回都不暴露为模型工具；
+模型和知识库文本不能直接赋予这些权限。
+
+任务状态流转：
+
+```text
+PLANNING → WAITING_APPROVAL → APPROVED → EXECUTING → COMPLETED
+                 ↓               ↓           ↓
+             WITHDRAWN      NEEDS_REVIEW   NEEDS_REVIEW
+```
+
+- 提案保存订单状态、版本、金额和固定业务规则 unpaid-cancel-v1，10 分钟后审批失效。
+- approve 只持久化人工批准；resume 才会执行，二者均需人工持有的 X-Agent-Key。
+- 执行前复查归属、版本、状态和金额；订单端再执行状态校验和 CAS 写入，阻止“检查后刚好支付”的竞态。
+- 外部写之前先持久化 WRITE_INTENT。超时或进程重启后只读查询结果，不自动重发。
+  查到 CANCELLED 才完成；未取消则转人工。完成记录只说明观察到的业务结果，不虚构执行归因。
+- 未发出写请求的旧计划可以 replan，但必须重新审批；已经尝试写入的任务不允许重新规划后重复写。
+- 每一步的事实和人工批准都保存在 history，和聊天记忆分开。resume 可在重启后凭同一个任务 ID 继续，
+  不需要再请求模型重新生成计划。
+
+### 运行和演示
+
+两个应用均设置同一个 `AFTER_SALES_API_KEY`（自行生成，只供操作者和服务使用，勿放入提示词）。
+AI 应用另设置 `AFTER_SALES_OPERATOR_USER_ID=user1`，归属来自服务配置而不是模型参数。
+这是单运营用户演示；共享密钥并不是完整的多用户身份系统。
+
+1. 启动 ofs-app 和 ofs-ai，先创建一张 user1 的草稿订单。
+2. 对 Agent 说“帮我取消订单 ORD-…”，或通过下面的 API 创建任务。
+3. 核对返回的 orderId、approvedPlan 和 history，人工审批，随后 resume。
+
+```bash
+# 使用你自己设置的 AFTER_SALES_API_KEY；替换订单号
+curl -X POST http://localhost:8080/agent/tasks \
+  -H "X-Agent-Key: $AFTER_SALES_API_KEY" -H 'Content-Type: application/json' \
+  -d '{"orderId":"ORD-替换这里"}'
+
+# 替换任务 ID；version 必须使用返回计划的真实版本
+curl -X POST http://localhost:8080/agent/tasks/task-替换这里/approve \
+  -H "X-Agent-Key: $AFTER_SALES_API_KEY" -H 'Content-Type: application/json' \
+  -d '{"version":0}'
+
+# 可以在 approve 后重启 ofs-ai，再执行下面命令
+curl -X POST http://localhost:8080/agent/tasks/task-替换这里/resume \
+  -H "X-Agent-Key: $AFTER_SALES_API_KEY"
+
+curl http://localhost:8080/agent/tasks/task-替换这里 \
+  -H "X-Agent-Key: $AFTER_SALES_API_KEY"
+```
+
+新订单端接口为 `POST /internal/agent/orders/{id}/cancel-unpaid`，校验相同密钥，
+请求体为 `{"userId":"user1","expectedVersion":0}`，成功后写取消事件到 Outbox。
+未配置密钥时新写接口和任务管理 API 返回 503，错误密钥返回 403。
+
+### 持久化与边界
+
+检查点存放在 `AFTER_SALES_TASK_DIRECTORY`（默认相对启动目录的 `./data/after-sales`）。
+使用临时文件写入、force 和原子替换；操作系统文件锁禁止两个 JVM 同时使用同一目录。
+重启必须保持同一个绝对路径；容器需挂载持久卷。本版验证进程重启恢复，不提供多副本调度或断电级持久化保证。
+resume 是显式操作，没有后台自动扫描任务。人工撤回与执行在同一个进程内串行化。
+
+订单服务默认仍是内存仓储，因此本次重启演示针对 **ofs-ai**；重启 ofs-app 会丢订单。
+旧订单 API 和旧版 /confirm 仍是学习接口，并未因此获得完整的生产鉴权。
+本版不支持自然语言跨订单搜索、退款、退货、库存释放和通知执行；这些需后续接入真实业务能力。
+
+### 已有故障验证
+
+`mvn test -pl ofs-ai` 不需要模型 API 或 Docker，使用可控订单网关验证：
+等待审批/审批后重启、写成功但响应丢失、写成功后崩溃、失败不盲重试、过期审批、
+订单变化、归属越权、并发 resume、用户撤回、读取故障，以及模型无审批执行工具。
+订单模块的 REST 测试另验证密钥、版本、归属和已支付订单拦截。
+这些是确定性执行器的故障测试，不等同于已完成真实模型的幻觉率或提示词注入评估。
